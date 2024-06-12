@@ -1,0 +1,64 @@
+run:
+  timeout: 5m # Set the maximum time for the linter to run to 5 minutes.
+  skip-dirs:
+    - "vendor" # Skip the vendor directory to avoid linting dependencies.
+    - "test"
+  skip-files:
+    - ".*\\.gen\\.go" # Skip all files that are generated (matching the pattern .gen.go).
+
+linters:
+  disable-all: true # Disable all linters initially, facilitate enabling only necessary ones.
+  enable:
+    - errcheck # Check for unchecked errors.
+    - gofmt # Check that files are correctly formatted.
+    - goimports # Check imports formatting.
+    - govet # Report likely mistakes using static analysis.
+    - ineffassign # Detect ineffectual assignments.
+    - staticcheck # Comprehensive static analysis, including common issues.
+    - structcheck # Finds unused struct fields.
+    - unused # Finds unused variables/constants/functions.
+    - varcheck # Finds unused global variables.
+    - bodyclose # Check for HTTP response body closed properly.
+    - deadcode # Report dead code.
+    - gocyclo # Report high package complexity.
+    - misspell # Detect spelling errors.
+    - unconvert # Detect redundant type conversions.
+    - prealloc # Suggest preallocating slices.
+
+linter-settings:
+  gofmt:
+    simplify: true # Simplify formatting where possible.
+  errcheck:
+    check-type-assertions: true # Check for unchecked type assertions.
+    check-defer: true # Ensure all deferred functions are checked.
+  gocyclo:
+    min-complexity: 15 # Set cyclomatic complexity threshold to 15. <- Update this value if necessary
+  staticcheck:
+    checks:
+      - SA1000 # Check for invalid regular expression syntax.
+      - SA1001 # Check for invalid anonymous fields.
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck # Ignore unchecked errors in test files (common exclusion for test files).
+    - path: "external/.*"
+      linters:
+        - staticcheck # Skip static checks for external code.
+        - gofmt # Skip formatting checks for external code.
+    - path: "generated/.*"
+      linters:
+        - staticcheck # Skip static checks for generated code.
+        - gofmt # Skip formatting checks for generated code.
+  exclude:
+    - "should have comment" # Ignore issues related to missing comments.
+    - "error return value not checked" # Common intention for unchecked errors exclusion.
+
+output:
+  format: colored-line-number # Format output with colors and line numbers for easier reading.
+  sort-results: true # Sort results by file path for better organization.
+
+fix:
+  gofmt: true # Automatically fix gofmt issues.
+  goimports: true # Automatically fix goimports issues.
