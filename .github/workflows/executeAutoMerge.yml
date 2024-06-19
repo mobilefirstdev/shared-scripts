@@ -14,6 +14,7 @@ on:
         required: false
 
 jobs:
+  # Figure out what branch triggered this
   determine-branch:
     runs-on: ubuntu-latest
     outputs:
