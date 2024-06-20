@@ -62,3 +62,8 @@ else
 	@echo "No commit message provided, skipping commit."
 endif
 	@echo "preRelease process completed."
+
+.PHONY: lint
+lint:
+	@echo "Running linter..."
+	@go run github.com/golangci/golangci-lint/cmd/golangci-lint run
