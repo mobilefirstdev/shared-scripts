@@ -37,3 +37,5 @@ jobs:
       branch: ${{ needs.determine-branch.outputs.branch }}
     secrets:
       BS_GH_PAT: ${{ secrets.BS_GH_PAT }}
+
+  # TODO after success above, deploy local branch
