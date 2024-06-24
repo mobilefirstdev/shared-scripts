@@ -36,11 +36,10 @@ endif
 	echo "Current branch: $$current_branch"; \
 	echo "Pulling latest changes from remote..."; \
 	git pull origin $$current_branch
-
 	@echo "Updating dependencies for branch: $(branch)"
-	@GOPRIVATE=github.com/mobilefirstdev/* && cat go.mod | grep "github.com/mobilefirstdev" | grep -v "\^module" | cut -d ' ' -f 1 | while read -r module; do \
+	@GOPRIVATE=github.com/mobilefirstdev/* && cat go.mod | grep "github.com/mobilefirstdev" | grep -v "^module" | awk '{print $$1}' | while read -r module; do \
 		echo "Updating $$module to branch $(branch)..."; \
-		GOPRIVATE=github.com/mobilefirstdev/* go get "$$module"@$(branch); \
+		GOPRIVATE=github.com/mobilefirstdev/* go get "$$module@$(branch)"; \
 	done
 	@echo "Running go mod tidy..."
 	@GOPRIVATE=github.com/mobilefirstdev/* go mod tidy
