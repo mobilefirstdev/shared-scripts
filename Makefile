@@ -97,20 +97,23 @@ endif
 ifndef commitmess
 	$(error commitmess is required)
 endif
-ifndef needs_go_build
-	needs_go_build=no
-endif
+
 	@echo "Pulling target branch: $(target)"
-	git pull \
-    git pull origin $(target) \
-    git checkout $(target) \
-    @echo "Updating base branch: $(base)"
-	git pull origin $(base) \
-    git merge $(base) \
-    @echo "Running preRelease on target branch: $(target)" \
-    make preRelease branch=$(target) \
-	@echo "Committing changes with message: $(commitmess)" \
+	git checkout $(target)
+	git pull origin $(target)
+
+	@echo "Updating base branch: $(base)"
+	git checkout $(base)
+	git pull origin $(base)
+	git checkout $(target)
+	git merge $(base)
+
+	@echo "Running preRelease on target branch: $(target)"
+	make preRelease branch=$(target)
+
+	@echo "Committing changes with message: $(commitmess)"
 	git add -A
 	git commit -m "$(commitmess)"
-	git push
+	git push origin $(target)
+
 	@echo "codeMerge process completed."
