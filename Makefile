@@ -101,6 +101,7 @@ ifndef needsBuild
 	needsBuild=no
 endif
 
+
 	@echo "Pulling target branch: $(target)"
 	git checkout $(target)
 	git pull origin $(target)
@@ -124,3 +125,52 @@ endif
 	git push origin $(target)
 
 	@echo "codeMerge process completed."
+
+
+
+.PHONY: cutoffMerge
+cutoffMerge:
+ifndef version
+	$(error version is required)
+endif
+	$(eval CURRENT_DIR := $(shell pwd))
+	$(eval IS_SERVICE := $(if $(findstring -service,$(CURRENT_DIR)),yes,no))
+	$(eval NEEDS_BUILD := $(if $(filter yes,$(IS_SERVICE)),,yes))
+	@echo "Current directory: $(CURRENT_DIR)"
+	@if [ "$(IS_SERVICE)" = "yes" ]; then \
+		echo "This directory is a service."; \
+		echo "needsBuild is not set for services."; \
+	else \
+		echo "This directory is not a service."; \
+		echo "needsBuild is set to yes."; \
+	fi
+	@echo "Executing codeMerge..."
+	@if [ "$(IS_SERVICE)" = "yes" ]; then \
+		make codeMerge base=dev target=staging commitmess="code cutoff: $(version)"; \
+	else \
+		make codeMerge base=dev target=staging commitmess="code cutoff: $(version)" needsBuild=yes; \
+	fi
+
+.PHONY: releaseMerge
+releaseMerge:
+ifndef version
+	$(error version is required)
+endif
+	$(eval CURRENT_DIR := $(shell pwd))
+	$(eval IS_SERVICE := $(if $(findstring -service,$(CURRENT_DIR)),yes,no))
+	$(eval NEEDS_BUILD := $(if $(filter yes,$(IS_SERVICE)),,yes))
+	@echo "Current directory: $(CURRENT_DIR)"
+	@if [ "$(IS_SERVICE)" = "yes" ]; then \
+		echo "This directory is a service."; \
+		echo "needsBuild is not set for services."; \
+	else \
+		echo "This directory is not a service."; \
+		echo "needsBuild is set to yes."; \
+	fi
+	@echo "Executing codeMerge..."
+	@if [ "$(IS_SERVICE)" = "yes" ]; then \
+		make codeMerge base=staging target=prod commitmess="release: $(version)"; \
+	else \
+		make codeMerge base=staging target=prod commitmess="release: $(version)" needsBuild=yes; \
+	fi
+
