@@ -97,6 +97,9 @@ endif
 ifndef commitmess
 	$(error commitmess is required)
 endif
+ifndef needsBuild
+	needsBuild=no
+endif
 
 	@echo "Pulling target branch: $(target)"
 	git checkout $(target)
@@ -109,7 +112,11 @@ endif
 	git merge $(base)
 
 	@echo "Running preRelease on target branch: $(target)"
+ifeq ($(needsBuild),yes)
+	make preRelease branch=$(target) needs_go_build=yes
+else
 	make preRelease branch=$(target)
+endif
 
 	@echo "Committing changes with message: $(commitmess)"
 	git add -A
