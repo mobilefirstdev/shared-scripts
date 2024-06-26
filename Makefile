@@ -68,17 +68,49 @@ lint:
 	golangci-lint run
 
 
-.PHONY: updateRemoteBranches update-remote-dev update-remote-staging update-remote-prod
-updateRemoteBranches: update-remote-dev update-remote-staging update-remote-prod
+.PHONY: updateRemoteBranches update-remote-prod update-remote-staging update-remote-dev
+updateRemoteBranches: update-remote-prod update-remote-staging update-remote-dev
 
 # Update dev branch
 update-remote-dev:
+	git checkout dev
 	git pull origin dev
 
 # Update staging branch
 update-remote-staging:
+	git checkout staging
 	git pull origin staging
 
 # Update prod branch
 update-remote-prod:
+	git checkout prod
 	git pull origin prod
+
+.PHONY: codeMerge
+codeMerge:
+ifndef base
+	$(error base is required)
+endif
+ifndef target
+	$(error target is required)
+endif
+ifndef commitmess
+	$(error commitmess is required)
+endif
+ifndef needs_go_build
+	needs_go_build=no
+endif
+	@echo "Pulling target branch: $(target)"
+	git pull \
+    git pull origin $(target) \
+    git checkout $(target) \
+    @echo "Updating base branch: $(base)"
+	git pull origin $(base) \
+    git merge $(base) \
+    @echo "Running preRelease on target branch: $(target)" \
+    make preRelease branch=$(target) \
+	@echo "Committing changes with message: $(commitmess)" \
+	git add -A
+	git commit -m "$(commitmess)"
+	git push
+	@echo "codeMerge process completed."
