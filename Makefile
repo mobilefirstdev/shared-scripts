@@ -66,3 +66,19 @@ endif
 lint:
 	@echo "Running linter..."
 	golangci-lint run
+
+
+.PHONY: updateRemoteBranches update-remote-dev update-remote-staging update-remote-prod
+updateRemoteBranches: update-remote-dev update-remote-staging update-remote-prod
+
+# Update dev branch
+update-remote-dev:
+	git pull origin dev
+
+# Update staging branch
+update-remote-staging:
+	git pull origin staging
+
+# Update prod branch
+update-remote-prod:
+	git pull origin prod
