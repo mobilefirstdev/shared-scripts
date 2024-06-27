@@ -119,6 +119,11 @@ else
 	make preRelease branch=$(target)
 endif
 
+	@echo "Updating git-modules for branch: $(target)"
+	cd shared-scripts
+	git pull origin dev
+	cd ..
+
 	@echo "Committing changes with message: $(commitmess)"
 	git add -A
 	git commit -m "$(commitmess)"
