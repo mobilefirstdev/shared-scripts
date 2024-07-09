@@ -1,46 +1,99 @@
+import os
 import requests
 from requests.auth import HTTPBasicAuth
 import json
+from dotenv import load_dotenv
 
-def get_jira_ticket_info(ticket_key):
-    # Jira API endpoint
+# Load environment variables from .env file
+load_dotenv()
+
+def get_issue_details(issue_key, auth, headers):
+    api_endpoint = f"https://budsense.atlassian.net/rest/api/3/issue/{issue_key}"
+    response = requests.get(api_endpoint, headers=headers, auth=auth)
+    response.raise_for_status()
+    return response.json()
+
+def format_issue_details(issue_data):
+    description = issue_data['fields']['description']
+    formatted_description = ""
+    if description:
+        if isinstance(description, dict) and 'content' in description:
+            for content in description['content']:
+                if content['type'] == 'paragraph':
+                    for text in content['content']:
+                        if text['type'] == 'text':
+                            formatted_description += text['text'] + " "
+        else:
+            formatted_description = description
+    
+    return {
+        "key": issue_data['key'],
+        "title": issue_data['fields']['summary'],
+        "status": issue_data['fields']['status']['name'],
+        "description": formatted_description.strip() if formatted_description else "No description provided."
+    }
+
+def get_jira_issue_info(issue_key):
     base_url = "https://budsense.atlassian.net"
-    api_endpoint = f"{base_url}/rest/api/2/issue/{ticket_key}"
+    api_endpoint = f"{base_url}/rest/api/3/issue/{issue_key}"
 
-    # Authentication
-    email = "sheroze@mybudsense.com"  
-    api_token = "" 
+    # Get email and API token from environment variables
+    email = os.getenv('JIRA_EMAIL')
+    api_token = os.getenv('JIRA_API_TOKEN')
 
-    # Make the API request
+    if not email or not api_token:
+        return json.dumps({"error": "JIRA_EMAIL or JIRA_API_TOKEN not set in .env file"})
+
     auth = HTTPBasicAuth(email, api_token)
     headers = {"Accept": "application/json"}
 
     try:
-        response = requests.get(api_endpoint, headers=headers, auth=auth)
-        response.raise_for_status()  
+        main_issue = get_issue_details(issue_key, auth, headers)
         
-        ticket_data = response.json()
+        result = {
+            "main_issue": format_issue_details(main_issue),
+            "subtasks": [],
+            "linked_issues": []
+        }
         
-        # Extract relevant information
-        summary = ticket_data['fields']['summary']
-        status = ticket_data['fields']['status']['name']
-        assignee = ticket_data['fields']['assignee']['displayName'] if ticket_data['fields']['assignee'] else "Unassigned"
-        description = ticket_data['fields']['description']
-
-        # Print the information
-        print(f"Ticket: {ticket_key}")
-        print(f"Summary: {summary}")
-        print(f"Status: {status}")
-        print(f"Assignee: {assignee}")
-        print(f"Description: {description}")
-
+        # Get subtasks
+        for subtask in main_issue['fields'].get('subtasks', []):
+            subtask_data = get_issue_details(subtask['key'], auth, headers)
+            result["subtasks"].append(format_issue_details(subtask_data))
+        
+        # Get linked issues
+        for link in main_issue['fields'].get('issuelinks', []):
+            if 'outwardIssue' in link:
+                linked_issue = get_issue_details(link['outwardIssue']['key'], auth, headers)
+                result["linked_issues"].append({
+                    "relationship": f"This issue {link['type']['outward']}",
+                    "issue": format_issue_details(linked_issue)
+                })
+            elif 'inwardIssue' in link:
+                linked_issue = get_issue_details(link['inwardIssue']['key'], auth, headers)
+                result["linked_issues"].append({
+                    "relationship": f"This issue {link['type']['inward']} by",
+                    "issue": format_issue_details(linked_issue)
+                })
+        
+        return json.dumps(result, indent=2)
+        
     except requests.exceptions.HTTPError as e:
-        print(f"HTTP Error occurred: {e}")
+        return json.dumps({"error": f"HTTP Error occurred: {str(e)}"})
     except requests.exceptions.RequestException as e:
-        print(f"An error occurred while making the request: {e}")
+        return json.dumps({"error": f"An error occurred while making the request: {str(e)}"})
     except KeyError as e:
-        print(f"Error parsing the response: {e}")
+        return json.dumps({"error": f"Error parsing the response: {str(e)}"})
 
 # Example usage
-ticket_key = input("Enter the Jira ticket key: ")
-get_jira_ticket_info(ticket_key)
+issue_key = input("Enter the Jira issue key: ")
+result = get_jira_issue_info(issue_key)
+
+# Print the result to console
+print(result)
+
+# Save the result to a file
+with open('jira_ticket_helper.json', 'w') as f:
+    f.write(result)
+
+print(f"\nThe JSON data has been saved to 'jira_ticket_helper.json'")
