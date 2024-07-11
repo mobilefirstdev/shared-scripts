@@ -46,17 +46,19 @@ def get_changed_files_from_stash():
     return stash_files.stdout.splitlines() if stash_files else []
 
 def is_binary_file(file_path):
-    """Check if a file is binary."""
+    """
+    Check if a file is binary by reading a chunk of its content.
+    This method is more reliable than trying to decode the entire file.
+    """
     try:
-        with open(file_path, 'tr') as check_file:
-            check_file.read()
-            return False
-    except UnicodeDecodeError:
-        return True
+        chunk_size = 1024
+        with open(file_path, 'rb') as file:
+            chunk = file.read(chunk_size)
+            return b'\0' in chunk  # Binary files often contain null bytes
     except Exception as e:
         print_error(f"Error checking if file is binary: {file_path}")
         print_error(str(e))
-        return True
+        return True  # Treat as binary if there's an error
 
 def parse_gitignore(gitignore_path):
     """Parse .gitignore file and return a list of patterns."""
