@@ -226,10 +226,14 @@ aiCommit:
 	echo "$(BLUE)Running llm_handler script...$(RESET)"; \
 	cd "$(SHARED_SCRIPTS_DIR)" && $(PYTHON) -m automation.llm_handler.main "$(TICKET)" || (echo "$(RED)Error in llm_handler script$(RESET)" && exit 1); \
 	echo "$(GREEN)AI-assisted commit process completed.$(RESET)"; \
-	echo "$(BLUE)Copying final commit message...$(RESET)"; \
+	echo "$(BLUE)Extracting commit message...$(RESET)"; \
 	if [ -f TEMP/final_commit_message.txt ]; then \
-		COMMIT_MSG=$$(cat TEMP/final_commit_message.txt); \
-		echo "$(GREEN)Commit message copied successfully.$(RESET)"; \
+		COMMIT_MSG=$$(grep -o '"response": *"[^"]*"' TEMP/final_commit_message.txt | sed 's/"response": *"//;s/"//'); \
+		if [ -z "$$COMMIT_MSG" ]; then \
+			echo "$(RED)Error: Unable to extract commit message from JSON$(RESET)"; \
+			exit 1; \
+		fi; \
+		echo "$(GREEN)Commit message extracted successfully.$(RESET)"; \
 		echo "$(BLUE)Switching to branch $(TICKET)...$(RESET)"; \
 		git checkout $(TICKET) || (echo "$(RED)Error: Unable to switch to branch $(TICKET)$(RESET)" && exit 1); \
 		echo "$(BLUE)Creating commit on branch $(TICKET)...$(RESET)"; \
