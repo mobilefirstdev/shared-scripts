@@ -1,7 +1,12 @@
 #artifacts
 jira_ticket_helper.json
-
+*.csv
 
 #env
 .env
 
+#python 
+__pycache__
+
+#temp
+TEMP
