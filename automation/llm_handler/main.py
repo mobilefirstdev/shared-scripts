@@ -1,68 +1,56 @@
-# llm_handler/main.py
-
+import sys
+import subprocess
 import os
 import csv
-import subprocess
-import sys
 import requests
 import json
 
-def read_csv_file(file_path):
-    print(f"Reading CSV file: {file_path}")
-    file_paths = []
-    try:
-        with open(file_path, 'r') as csv_file:
-            csv_reader = csv.DictReader(csv_file)
-            for row in csv_reader:
-                file_paths.append(row['File Path'])
-        print(f"Successfully read {len(file_paths)} file path(s) from the CSV.")
-    except FileNotFoundError:
-        print(f"Error: CSV file '{file_path}' not found.")
-        sys.exit(1)
-    except csv.Error as e:
-        print(f"Error reading CSV file: {e}")
-        sys.exit(1)
-    return file_paths
+# ANSI color codes
+RED = '\033[0;31m'
+RESET = '\033[0m'
 
-def get_repo_root():
-    try:
-        repo_root = subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], text=True).strip()
-        print(f"Git repository root: {repo_root}")
-        return repo_root
-    except subprocess.CalledProcessError as e:
-        print(f"Error finding Git repository root: {e}")
-        sys.exit(1)
+def print_error(message):
+    """Print an error message in red."""
+    print(f"{RED}{message}{RESET}")
+
+def run_command(command):
+    """Run a shell command and return its output."""
+    result = subprocess.run(command, capture_output=True, text=True, shell=True)
+    if result.returncode != 0:
+        print_error(f"Error executing command: {command}")
+        print_error(f"Error message: {result.stderr}")
+    return result
 
 def get_file_content(file_path, branch):
+    """Get the content of a file from a specific branch."""
     print(f"Attempting to retrieve content of file '{file_path}' from branch '{branch}'")
     try:
         git_path = file_path[len('shared-scripts/'):] if file_path.startswith('shared-scripts/') else file_path
-        content = subprocess.check_output(['git', 'show', f'{branch}:{git_path}'], text=True)
+        content = subprocess.check_output(['git', 'show', f'{branch}:{git_path}'], stderr=subprocess.PIPE)
         print(f"Successfully retrieved content from '{branch}'")
         return content
     except subprocess.CalledProcessError as e:
-        print(f"File '{file_path}' does not exist in branch '{branch}' or error occurred: {e}")
+        print_error(f"File '{file_path}' does not exist in branch '{branch}' or error occurred: {e}")
         return None
 
 def create_merged_file(original_content, new_content, output_file):
+    """Create a merged file with original and new content."""
     print(f"Creating merged file: {output_file}")
-    content = ""
     try:
-        with open(output_file, 'w') as f:
+        with open(output_file, 'wb') as f:
             if original_content is not None:
-                content += "===== ORIGINAL CONTENT =====\n\n"
-                content += original_content
-                content += "\n\n===== NEW CONTENT =====\n\n"
+                f.write(b"===== ORIGINAL CONTENT =====\n\n")
+                f.write(original_content)
+                f.write(b"\n\n===== NEW CONTENT =====\n\n")
             if new_content is not None:
-                content += new_content
+                f.write(new_content)
             else:
-                content += "File does not exist in the new branch."
-            f.write(content)
+                f.write(b"File does not exist in the new branch.")
         print(f"Successfully created merged file: {output_file}")
-        return content
+        return output_file
     except IOError as e:
-        print(f"Error creating merged file: {e}")
-        sys.exit(1)
+        print_error(f"Error creating merged file: {e}")
+        return None
 
 def get_commit_message(file_content, is_new_file, file_name):
     url = "https://budbot.mybudsense.com/chat?token=9d41ed1c-1b89-41e7-845a-21bd6cb29277"
@@ -83,7 +71,7 @@ def get_commit_message(file_content, is_new_file, file_name):
         response.raise_for_status()
         return response.text
     except requests.RequestException as e:
-        print(f"Error making POST request: {e}")
+        print_error(f"Error making POST request: {e}")
         return None
 
 def combine_commit_messages(temp_folder):
@@ -111,38 +99,16 @@ def get_final_commit_message(combined_content):
         response.raise_for_status()
         return response.text
     except requests.RequestException as e:
-        print(f"Error making POST request: {e}")
+        print_error(f"Error making POST request: {e}")
         return None
 
-def main(ticket_number):
-    print(f"Starting script with ticket number: {ticket_number}")
-    
-    # Step 1: Get the repository root
-    repo_root = get_repo_root()
-    
-    # Step 2: Read the CSV file
-    csv_file_path = os.path.join(repo_root, 'autoCommitArtifact.csv')
-    file_paths = read_csv_file(csv_file_path)
-    
-    # Step 3: Get the current branch name
-    current_branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], text=True).strip()
-    print(f"Current git branch (base branch): {current_branch}")
-    
-    # Create TEMP folder
-    temp_folder = os.path.join(repo_root, 'TEMP')
-    os.makedirs(temp_folder, exist_ok=True)
-    print(f"Created TEMP folder at: {temp_folder}")
-    
-    for index, file_path in enumerate(file_paths, start=1):
+def process_file(file_path, current_branch, ticket_number, temp_folder, index):
+    try:
         print(f"\nProcessing file {index}: {file_path}")
         
-        # Step 4: Get the original content (from the current branch)
         original_content = get_file_content(file_path, current_branch)
-        
-        # Step 5: Get the new content (from the ticket branch)
         new_content = get_file_content(file_path, ticket_number)
         
-        # Step 6: Create the merged file
         if original_content is not None or new_content is not None:
             if original_content is None:
                 file_prefix = 'new'
@@ -152,10 +118,12 @@ def main(ticket_number):
                 file_prefix = 'modified'
             
             output_file = os.path.join(temp_folder, f'{file_prefix}_{index}.txt')
-            merged_content = create_merged_file(original_content, new_content, output_file)
+            merged_file = create_merged_file(original_content, new_content, output_file)
             
-            # Step 7: For new and modified files, get commit message
-            if file_prefix in ['new', 'modified']:
+            if merged_file and file_prefix in ['new', 'modified']:
+                with open(merged_file, 'r', encoding='utf-8') as f:
+                    merged_content = f.read()
+                
                 commit_message = get_commit_message(merged_content, file_prefix == 'new', file_path)
                 if commit_message:
                     commit_file = os.path.join(temp_folder, f'{file_prefix}_{index}_llm.txt')
@@ -165,10 +133,44 @@ def main(ticket_number):
         else:
             print(f"Skipping file '{file_path}' as it doesn't exist in either branch.")
     
-    # Step 8: Combine all commit messages
+    except Exception as e:
+        print_error(f"Error processing file {file_path}: {str(e)}")
+        print("Skipping this file and continuing with the next one.")
+
+def main(ticket_number):
+    print(f"Starting script with ticket number: {ticket_number}")
+    
+    repo_root = run_command("git rev-parse --show-toplevel").stdout.strip()
+    print(f"Git repository root: {repo_root}")
+    
+    csv_file_path = os.path.join(repo_root, 'autoCommitArtifact.csv')
+    file_paths = []
+    print(f"Reading CSV file: {csv_file_path}")
+    try:
+        with open(csv_file_path, 'r') as csv_file:
+            csv_reader = csv.DictReader(csv_file)
+            for row in csv_reader:
+                file_paths.append(row['File Path'])
+        print(f"Successfully read {len(file_paths)} file path(s) from the CSV.")
+    except FileNotFoundError:
+        print_error(f"Error: CSV file '{csv_file_path}' not found.")
+        sys.exit(1)
+    except csv.Error as e:
+        print_error(f"Error reading CSV file: {e}")
+        sys.exit(1)
+    
+    current_branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], text=True).strip()
+    print(f"Current git branch (base branch): {current_branch}")
+    
+    temp_folder = os.path.join(repo_root, 'TEMP')
+    os.makedirs(temp_folder, exist_ok=True)
+    print(f"Created TEMP folder at: {temp_folder}")
+    
+    for index, file_path in enumerate(file_paths, start=1):
+        process_file(file_path, current_branch, ticket_number, temp_folder, index)
+    
     combined_content = combine_commit_messages(temp_folder)
     
-    # Step 9: Get final commit message
     final_commit_message = get_final_commit_message(combined_content)
     if final_commit_message:
         final_commit_file = os.path.join(temp_folder, 'final_commit_message.txt')

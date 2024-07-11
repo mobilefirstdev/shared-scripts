@@ -181,7 +181,7 @@ endif
 
 
 
-# Makefile for shared-scripts
+# Makefile for AI-assisted commit
 
 # Define the Python interpreter (use Python 3.10 specifically)
 PYTHON := python3.10
