@@ -2,34 +2,48 @@ import sys
 import subprocess
 import os
 import csv
+import fnmatch
+
+# ANSI color codes
+RED = '\033[0;31m'
+GREEN = '\033[0;32m'
+RESET = '\033[0m'
+
+def print_error(message):
+    """Print an error message in red."""
+    print(f"{RED}{message}{RESET}")
+
+def print_success(message):
+    """Print a success message in green."""
+    print(f"{GREEN}{message}{RESET}")
 
 def run_command(command):
     """Run a shell command and return its output."""
     result = subprocess.run(command, capture_output=True, text=True, shell=True)
     if result.returncode != 0:
-        print(f"Error executing command: {command}")
-        print(f"Error message: {result.stderr}")
-        sys.exit(1)
+        print_error(f"Error executing command: {command}")
+        print_error(f"Error message: {result.stderr}")
+        return None
     return result
 
 def print_changes():
     """Print staged and unstaged changes."""
     print("Staged changes:")
     staged = run_command("git diff --cached --name-status")
-    print(staged.stdout if staged.stdout else "No staged changes.")
+    print(staged.stdout if staged and staged.stdout else "No staged changes.")
 
     print("\nUnstaged changes:")
     unstaged = run_command("git diff --name-status")
-    print(unstaged.stdout if unstaged.stdout else "No unstaged changes.")
+    print(unstaged.stdout if unstaged and unstaged.stdout else "No unstaged changes.")
 
     print("\nUntracked files:")
     untracked = run_command("git ls-files --others --exclude-standard")
-    print(untracked.stdout if untracked.stdout else "No untracked files.")
+    print(untracked.stdout if untracked and untracked.stdout else "No untracked files.")
 
 def get_changed_files_from_stash():
     """Get a list of all changed files from the latest stash."""
-    stash_files = run_command("git stash show --name-only").stdout.splitlines()
-    return stash_files
+    stash_files = run_command("git stash show --name-only")
+    return stash_files.stdout.splitlines() if stash_files else []
 
 def is_binary_file(file_path):
     """Check if a file is binary."""
@@ -39,82 +53,55 @@ def is_binary_file(file_path):
             return False
     except UnicodeDecodeError:
         return True
+    except Exception as e:
+        print_error(f"Error checking if file is binary: {file_path}")
+        print_error(str(e))
+        return True
 
-def should_ignore_file(file_path):
-    """Check if the file should be ignored based on typical Python .gitignore rules."""
-    ignore_patterns = [
-        '__pycache__',
-        '*.pyc',
-        '*.pyo',
-        '*.pyd',
-        '.Python',
-        'build',
-        'develop-eggs',
-        'dist',
-        'downloads',
-        'eggs',
-        '.eggs',
-        'lib',
-        'lib64',
-        'parts',
-        'sdist',
-        'var',
-        '*.egg-info',
-        '.installed.cfg',
-        '*.egg',
-        '*.manifest',
-        '*.spec',
-        'pip-log.txt',
-        'pip-delete-this-directory.txt',
-        '.pytest_cache',
-        '.coverage',
-        '.DS_Store',
-        '.vscode',
-        '.idea',
-        '*.log',
-        '.env',
-        'venv',
-        'ENV',
-    ]
+def parse_gitignore(gitignore_path):
+    """Parse .gitignore file and return a list of patterns."""
+    if not os.path.exists(gitignore_path):
+        return []
+    
+    with open(gitignore_path, 'r') as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
-    file_name = os.path.basename(file_path)
-    dir_path = os.path.dirname(file_path)
-
+def should_ignore_file(file_path, repo_root):
+    """Check if the file should be ignored based on .gitignore rules."""
+    gitignore_path = os.path.join(repo_root, '.gitignore')
+    ignore_patterns = parse_gitignore(gitignore_path)
+    
+    # Always ignore .git directory
+    ignore_patterns.append('.git/**')
+    
+    relative_path = os.path.relpath(file_path, repo_root)
+    
     for pattern in ignore_patterns:
-        if pattern.startswith('*'):
-            if file_name.endswith(pattern[1:]):
+        if pattern.endswith('/'):
+            # Directory pattern
+            if fnmatch.fnmatch(relative_path, f"{pattern}*"):
                 return True
-        elif pattern in file_path:
+        elif fnmatch.fnmatch(relative_path, pattern):
             return True
-
+        elif '/' not in pattern and fnmatch.fnmatch(os.path.basename(relative_path), pattern):
+            return True
+    
     return False
 
-def filter_csv_file(csv_path, repo_root):
-    """Filter the CSV file to remove binary and ignored files."""
-    temp_csv_path = csv_path + '.temp'
-    filtered_count = 0
-
-    with open(csv_path, 'r') as input_file, open(temp_csv_path, 'w', newline='') as output_file:
-        reader = csv.reader(input_file)
-        writer = csv.writer(output_file)
-
-        # Write the header
-        header = next(reader)
-        writer.writerow(header)
-
-        for row in reader:
-            file_path = row[0]
-            full_path = os.path.join(repo_root, file_path.split('/', 1)[1])  # Remove repo name from path
-            
-            if not should_ignore_file(file_path) and not is_binary_file(full_path):
-                writer.writerow(row)
-            else:
-                filtered_count += 1
-                print(f"Filtered out: {file_path}")
-
-    # Replace the original CSV with the filtered one
-    os.replace(temp_csv_path, csv_path)
-    print(f"Filtered out {filtered_count} files from the CSV.")
+def process_file(file_path, repo_name, repo_root):
+    """Process a single file and return True if it should be included in the CSV."""
+    try:
+        full_path = os.path.join(repo_root, file_path)
+        if should_ignore_file(full_path, repo_root):
+            print_error(f"Ignoring file: {file_path}")
+            return False
+        if is_binary_file(full_path):
+            print_error(f"Skipping binary file: {file_path}")
+            return False
+        return True
+    except Exception as e:
+        print_error(f"Error processing file {file_path}: {str(e)}")
+        return False
 
 def main():
     if len(sys.argv) != 2:
@@ -124,7 +111,10 @@ def main():
     ticket_name = sys.argv[1]
 
     # Get git root directory
-    git_root = run_command("git rev-parse --show-toplevel").stdout.strip()
+    git_root = run_command("git rev-parse --show-toplevel")
+    if not git_root:
+        sys.exit(1)
+    git_root = git_root.stdout.strip()
     os.chdir(git_root)
 
     # Get current repo name
@@ -133,45 +123,52 @@ def main():
 
     # Get current branch name
     current_branch = run_command("git rev-parse --abbrev-ref HEAD")
+    if not current_branch:
+        sys.exit(1)
     current_branch = current_branch.stdout.strip()
     print(f"Current branch: {current_branch}")
 
     # Check for changes
     changes = run_command("git status --porcelain")
-    if changes.stdout:
+    if changes and changes.stdout:
         print("Changes detected in the current branch.")
         print("Current state of the repository:")
         print_changes()
         
         # Stage all changes, including untracked files
         print("\nStaging all changes...")
-        run_command("git add -A")
-        print("All changes have been staged.")
+        if not run_command("git add -A"):
+            sys.exit(1)
+        print_success("All changes have been staged.")
         
         # Stash changes
         print("\nStashing changes...")
-        run_command("git stash push -m 'Temporary stash for branch creation'")
-        print("Changes stashed successfully.")
+        if not run_command("git stash push -m 'Temporary stash for branch creation'"):
+            sys.exit(1)
+        print_success("Changes stashed successfully.")
         
         # Create new branch and switch to it
         print(f"\nCreating new branch '{ticket_name}' from '{current_branch}'...")
-        run_command(f"git checkout -b {ticket_name}")
-        print(f"Successfully created and checked out branch '{ticket_name}'.")
+        if not run_command(f"git checkout -b {ticket_name}"):
+            sys.exit(1)
+        print_success(f"Successfully created and checked out branch '{ticket_name}'.")
 
         # Apply stashed changes
         print("\nApplying stashed changes to the new branch...")
-        run_command("git stash apply")
-        print("Stashed changes applied successfully.")
+        if not run_command("git stash apply"):
+            sys.exit(1)
+        print_success("Stashed changes applied successfully.")
 
         # Commit changes in the new branch
         print("\nCommitting changes in the new branch...")
-        run_command("git add -A")
-        run_command(f"git commit -m 'Initial commit for {ticket_name}'")
-        print("Changes committed successfully.")
+        if not run_command("git add -A") or not run_command(f"git commit -m 'Initial commit for {ticket_name}'"):
+            sys.exit(1)
+        print_success("Changes committed successfully.")
 
         # Switch back to the original branch
         print(f"\nSwitching back to '{current_branch}'...")
-        run_command(f"git checkout {current_branch}")
+        if not run_command(f"git checkout {current_branch}"):
+            sys.exit(1)
 
         # Create CSV file from stash
         csv_filename = "autoCommitArtifact.csv"
@@ -182,18 +179,16 @@ def main():
             csv_writer = csv.writer(csvfile)
             csv_writer.writerow(["File Path"])  # Header
             for file in changed_files:
-                full_path = f"{repo_name}/{file}"
-                csv_writer.writerow([full_path])
-        print(f"{csv_filename} created successfully.")
-
-        # Filter the CSV file
-        print("\nFiltering CSV file...")
-        filter_csv_file(csv_path, git_root)
+                if process_file(file, repo_name, git_root):
+                    full_path = f"{repo_name}/{file}"
+                    csv_writer.writerow([full_path])
+        print_success(f"{csv_filename} created successfully.")
 
         # Clear the stash
         print("\nClearing the stash...")
-        run_command("git stash drop")
-        print("Stash cleared successfully.")
+        if not run_command("git stash drop"):
+            sys.exit(1)
+        print_success("Stash cleared successfully.")
 
     else:
         print("No changes detected in the current branch.")
@@ -202,10 +197,10 @@ def main():
     print("\nFinal state of the repository:")
     print_changes()
 
-    print(f"\nScript completed. You are now on branch '{current_branch}'.")
-    print(f"A new branch '{ticket_name}' has been created with all changes.")
-    print(f"The {csv_filename} has been created in the '{current_branch}' branch but is not committed.")
-    print("The CSV file has been filtered to remove binary and ignored files.")
+    print_success(f"\nScript completed. You are now on branch '{current_branch}'.")
+    print_success(f"A new branch '{ticket_name}' has been created with all changes.")
+    print_success(f"The {csv_filename} has been created in the '{current_branch}' branch but is not committed.")
+    print_success("The CSV file contains only the files that were successfully processed.")
 
 if __name__ == "__main__":
     main()
