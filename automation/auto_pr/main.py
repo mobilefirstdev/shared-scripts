@@ -73,7 +73,6 @@ def create_pull_request(owner, repo, title, body, head, base):
     """Create a pull request using GitHub API."""
     print_info("Creating pull request...")
     
-    # You should set your GitHub token as an environment variable
     github_token = os.environ.get('GITHUB_TOKEN')
     if not github_token:
         print_error("GitHub token not found. Please set the GITHUB_TOKEN environment variable.")
