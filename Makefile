@@ -192,6 +192,7 @@ SHARED_SCRIPTS_DIR := $(shell pwd)
 # Define the paths to the Python scripts relative to this Makefile
 AUTO_COMMIT_SCRIPT := "$(SHARED_SCRIPTS_DIR)/automation/auto_commit/main.py"
 LLM_HANDLER_SCRIPT := "$(SHARED_SCRIPTS_DIR)/automation/llm_handler/main.py"
+AUTO_PR_SCRIPT := "$(SHARED_SCRIPTS_DIR)/automation/auto_pr/main.py"
 
 # ANSI color codes
 BLUE := \033[0;34m
@@ -204,7 +205,7 @@ RESET := \033[0m
 .PHONY: aiCommit
 aiCommit:
 	@if [ -z "$(TICKET)" ]; then \
-		echo "$(YELLOW)Error: TICKET parameter is required. Usage: make aiCommit TICKET=<ticketName>$(RESET)"; \
+		echo "$(YELLOW)Error: TICKET parameter is required. Usage: make aiCommit TICKET=<ticketName> [PR=yes]$(RESET)"; \
 		exit 1; \
 	fi
 	@echo "$(BLUE)Starting AI-assisted commit process for ticket: $(TICKET)$(RESET)"
@@ -239,25 +240,39 @@ aiCommit:
 		echo "$(BLUE)Creating commit on branch $(TICKET)...$(RESET)"; \
 		git commit --amend -m "$$COMMIT_MSG" || (echo "$(RED)Error: Unable to create commit$(RESET)" && exit 1); \
 		echo "$(GREEN)Commit created successfully on branch $(TICKET).$(RESET)"; \
+		echo "$(BLUE)Pushing branch $(TICKET) to origin...$(RESET)"; \
+		git push -u origin $(TICKET) || (echo "$(RED)Error: Unable to push branch to origin$(RESET)" && exit 1); \
+		echo "$(GREEN)Branch $(TICKET) pushed to origin successfully.$(RESET)"; \
 		echo "$(BLUE)Switching back to original branch...$(RESET)"; \
 		git checkout - || (echo "$(RED)Error: Unable to switch back to original branch$(RESET)" && exit 1); \
 		echo "$(GREEN)Returned to original branch.$(RESET)"; \
+		if [ "$(PR)" = "yes" ]; then \
+			if [ ! -f $(AUTO_PR_SCRIPT) ]; then \
+				echo "$(RED)Error: $(AUTO_PR_SCRIPT) not found$(RESET)"; \
+				exit 1; \
+			fi; \
+			echo "$(BLUE)Running auto_pr script...$(RESET)"; \
+			cd "$(SHARED_SCRIPTS_DIR)" && $(PYTHON) -m automation.auto_pr.main "$(TICKET)" || (echo "$(RED)Error in auto_pr script$(RESET)" && exit 1); \
+			echo "$(GREEN)Auto PR process completed.$(RESET)"; \
+		else \
+			echo "$(YELLOW)Skipping PR creation. Use PR=yes to create a PR automatically.$(RESET)"; \
+		fi; \
 	else \
 		echo "$(YELLOW)Warning: final_commit_message.txt not found. Skipping commit step.$(RESET)"; \
 	fi; \
 	echo "$(GREEN)AI-assisted commit process completed successfully.$(RESET)"; \
-	echo "$(BLUE)You can now review and push the changes in the '$(TICKET)' branch.$(RESET)"; \
+	echo "$(BLUE)You can now review the changes in the '$(TICKET)' branch on the remote repository.$(RESET)"; \
 	)
 
 # Help target
 .PHONY: help
 help:
 	@echo "$(BLUE)Available targets:$(RESET)"
-	@echo "  $(GREEN)aiCommit TICKET=<ticketName>$(RESET)  Run AI-assisted commit process"
-	@echo "  $(GREEN)help$(RESET)                          Display this help message"
+	@echo "  $(GREEN)aiCommit TICKET=<ticketName> [PR=yes]$(RESET)  Run AI-assisted commit process"
+	@echo "  $(GREEN)help$(RESET)                                   Display this help message"
 	@echo ""
 	@echo "$(BLUE)Usage from shared-scripts directory:$(RESET)"
-	@echo "  $(GREEN)make aiCommit TICKET=<ticketName>$(RESET)"
+	@echo "  $(GREEN)make aiCommit TICKET=<ticketName> [PR=yes]$(RESET)"
 	@echo ""
 	@echo "$(BLUE)Usage from main repository:$(RESET)"
-	@echo "  $(GREEN)make -f path/to/shared-scripts/Makefile aiCommit TICKET=<ticketName>$(RESET)"
+	@echo "  $(GREEN)make -f path/to/shared-scripts/Makefile aiCommit TICKET=<ticketName> [PR=yes]$(RESET)"
