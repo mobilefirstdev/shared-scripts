@@ -179,3 +179,40 @@ endif
 		make codeMerge base=staging target=prod commitmess="release: $(version)" needsBuild=yes; \
 	fi
 
+
+
+# Makefile for AI-assisted commit
+
+# Define the Python interpreter
+PYTHON := python
+
+# Define the paths to the Python scripts relative to this Makefile
+AUTO_COMMIT_SCRIPT := automation/auto_commit/main.py
+LLM_HANDLER_SCRIPT := automation/llm_handler/main.py
+
+# Get the absolute path of the directory containing this Makefile
+SHARED_SCRIPTS_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+# Target for AI-assisted commit
+.PHONY: aiCommit
+aiCommit:
+	@if [ -z "$(TICKET)" ]; then \
+		echo "Error: TICKET parameter is required. Usage: make -f path/to/shared-scripts/Makefile aiCommit TICKET=<ticketName>"; \
+		exit 1; \
+	fi
+	@echo "Starting AI-assisted commit process for ticket: $(TICKET)"
+	@$(PYTHON) $(SHARED_SCRIPTS_DIR)$(AUTO_COMMIT_SCRIPT) $(TICKET)
+	@$(PYTHON) $(SHARED_SCRIPTS_DIR)$(LLM_HANDLER_SCRIPT) $(TICKET)
+	@echo "AI-assisted commit process completed."
+	@echo "Please review the generated commit message in TEMP/final_commit_message.txt"
+	@echo "To commit the changes, use: git commit -F TEMP/final_commit_message.txt"
+
+# Help target
+.PHONY: help
+help:
+	@echo "Available targets:"
+	@echo "  aiCommit TICKET=<ticketName>  Run AI-assisted commit process"
+	@echo "  help                          Display this help message"
+	@echo ""
+	@echo "Usage from main repository:"
+	@echo "  make -f path/to/shared-scripts/Makefile aiCommit TICKET=<ticketName>"

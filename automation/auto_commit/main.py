@@ -1,3 +1,5 @@
+# auto_commit/main.py
+
 import sys
 import subprocess
 import os
