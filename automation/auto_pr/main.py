@@ -103,6 +103,32 @@ def create_pull_request(owner, repo, title, body, head, base):
 def main(ticket_name):
     print_info(f"Starting auto PR process for ticket: {ticket_name}")
 
+    print_info(f"Current working directory: {os.getcwd()}")
+    
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    env_path = os.path.join(script_dir, '.env')
+    
+    print_info(f"Script directory: {script_dir}")
+    print_info(f".env file path: {env_path}")
+    print_info(f".env file exists: {os.path.exists(env_path)}")
+
+    if os.path.exists(env_path):
+        with open(env_path, 'r') as env_file:
+            env_contents = env_file.read()
+            print_info(f".env file contents (redacted):")
+            for line in env_contents.split('\n'):
+                if line.startswith('GITHUB_TOKEN='):
+                    print_info("GITHUB_TOKEN=********")
+                else:
+                    print_info(line)
+
+    print_info("Environment variables:")
+    for key, value in os.environ.items():
+        if key == 'GITHUB_TOKEN':
+            print_info(f"{key}=********")
+        else:
+            print_info(f"{key}={value}")
+
     # Get the default branch name
     default_branch = get_default_branch()
 
@@ -124,6 +150,6 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print_error("Usage: python auto_pr_script.py <ticketName>")
         sys.exit(1)
-
+    
     ticket_name = sys.argv[1]
     main(ticket_name)
