@@ -106,8 +106,12 @@ def process_file(file_path, current_branch, ticket_number, temp_folder, index):
     try:
         print(f"\nProcessing file {index}: {file_path}")
         
-        original_content = get_file_content(file_path, current_branch)
-        new_content = get_file_content(file_path, ticket_number)
+        # Convert to relative path if it's an absolute path
+        repo_root = run_command("git rev-parse --show-toplevel").stdout.strip()
+        relative_path = os.path.relpath(file_path, repo_root)
+        
+        original_content = get_file_content(relative_path, current_branch)
+        new_content = get_file_content(relative_path, ticket_number)
         
         if original_content is not None or new_content is not None:
             if original_content is None:
@@ -124,7 +128,7 @@ def process_file(file_path, current_branch, ticket_number, temp_folder, index):
                 with open(merged_file, 'r', encoding='utf-8') as f:
                     merged_content = f.read()
                 
-                commit_message = get_commit_message(merged_content, file_prefix == 'new', file_path)
+                commit_message = get_commit_message(merged_content, file_prefix == 'new', relative_path)
                 if commit_message:
                     commit_file = os.path.join(temp_folder, f'{file_prefix}_{index}_llm.txt')
                     with open(commit_file, 'w') as f:
