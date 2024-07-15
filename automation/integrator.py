@@ -1,5 +1,6 @@
 import sys
 import os
+import subprocess
 from git_change_processor.main import process_git_changes
 from llm_handler.main import generate_commit_message
 
@@ -18,22 +19,19 @@ def print_success(message):
 def print_error(message):
     print(f"{RED}{message}{RESET}")
 
-def find_csv_file():
-    # Start from the directory of this script
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # Go up to the parent directory of 'shared-scripts'
-    while os.path.basename(current_dir) != 'shared-scripts':
-        parent_dir = os.path.dirname(current_dir)
-        if parent_dir == current_dir:  # We've reached the root directory
-            return None
-        current_dir = parent_dir
-    
-    # Go up one more level to the parent of 'shared-scripts'
-    parent_of_shared_scripts = os.path.dirname(current_dir)
-    
-    # Look for the CSV file
-    csv_file_path = os.path.join(parent_of_shared_scripts, 'autoCommitArtifact.csv')
+def run_command(command):
+    result = subprocess.run(command, capture_output=True, text=True, shell=True)
+    if result.returncode != 0:
+        print_error(f"Error executing command: {command}")
+        print_error(f"Error message: {result.stderr}")
+    return result
+
+def find_repo_root():
+    result = run_command("git rev-parse --show-toplevel")
+    return result.stdout.strip() if result.returncode == 0 else None
+
+def find_csv_file(repo_root):
+    csv_file_path = os.path.join(repo_root, 'autoCommitArtifact.csv')
     return csv_file_path if os.path.exists(csv_file_path) else None
 
 def main():
@@ -46,7 +44,15 @@ def main():
     ticket_name = sys.argv[1]
     print(f"Ticket name: {ticket_name}")
 
-    print_step(2, "Detecting changes in the repository")
+    print_step(2, "Detecting repository root")
+    repo_root = find_repo_root()
+    if not repo_root:
+        print_error("Error: Unable to determine repository root")
+        sys.exit(1)
+    print_success(f"Repository root found: {repo_root}")
+
+    print_step(3, "Detecting changes in the repository")
+    os.chdir(repo_root)  # Change to repo root before processing changes
     changes_detected = process_git_changes(ticket_name)
 
     if not changes_detected:
@@ -55,16 +61,16 @@ def main():
 
     print_success("Changes detected in the repository.")
 
-    print_step(3, "Locating CSV file")
-    csv_file_path = find_csv_file()
+    print_step(4, "Locating CSV file")
+    csv_file_path = find_csv_file(repo_root)
     
     if csv_file_path:
         print_success(f"CSV file found: {csv_file_path}")
     else:
-        print_error("Error: CSV file 'autoCommitArtifact.csv' not found in the parent folder of shared-scripts")
+        print_error("Error: CSV file 'autoCommitArtifact.csv' not found in the repository root")
         sys.exit(1)
 
-    print_step(4, "Generating commit message")
+    print_step(5, "Generating commit message")
     commit_message = generate_commit_message(ticket_name, csv_file_path)
 
     if commit_message:
@@ -74,7 +80,7 @@ def main():
     else:
         print_error("Failed to generate commit message.")
 
-    print_step(5, "Integration process complete")
+    print_step(6, "Integration process complete")
 
 if __name__ == "__main__":
     main()
