@@ -3,11 +3,14 @@ import subprocess
 import requests
 import json
 from dotenv import load_dotenv
+from automation.jira_ticket_helper.main import get_jira_issue_info
 
 # Load environment variables from .env file
+print("Loading environment variables...")
 load_dotenv()
+print("Environment variables loaded.")
 
-# ANSI color codes
+# ANSI color codes for console output
 BLUE = '\033[0;34m'
 GREEN = '\033[0;32m'
 YELLOW = '\033[0;33m'
@@ -15,16 +18,16 @@ RED = '\033[0;31m'
 RESET = '\033[0m'
 
 def print_info(message):
-    print(f"{BLUE}{message}{RESET}")
+    print(f"{BLUE}INFO: {message}{RESET}")
 
 def print_success(message):
-    print(f"{GREEN}{message}{RESET}")
+    print(f"{GREEN}SUCCESS: {message}{RESET}")
 
 def print_warning(message):
-    print(f"{YELLOW}{message}{RESET}")
+    print(f"{YELLOW}WARNING: {message}{RESET}")
 
 def print_error(message):
-    print(f"{RED}{message}{RESET}")
+    print(f"{RED}ERROR: {message}{RESET}")
 
 def run_command(command):
     """Run a shell command and return its output."""
@@ -34,6 +37,7 @@ def run_command(command):
         print_error(f"Error executing command: {command}")
         print_error(f"Error message: {result.stderr}")
         return None
+    print_success(f"Command executed successfully. Output: {result.stdout.strip()}")
     return result.stdout.strip()
 
 def get_default_branch():
@@ -86,6 +90,7 @@ def create_pull_request(owner, repo, title, body, head, base, github_token):
         "base": base
     }
 
+    print_info(f"Sending POST request to GitHub API: {url}")
     response = requests.post(url, headers=headers, data=json.dumps(data))
     
     if response.status_code == 201:
@@ -93,6 +98,8 @@ def create_pull_request(owner, repo, title, body, head, base, github_token):
         print_success(f"Pull request created successfully. PR URL: {pr_data['html_url']}")
         return pr_data['html_url']
     else:
+        print_error(f"Failed to create pull request. Status code: {response.status_code}")
+        print_error(f"Response: {response.text}")
         raise ValueError(f"Failed to create pull request. Status code: {response.status_code}. Response: {response.text}")
 
 def push_branch(branch_name):
@@ -128,26 +135,98 @@ def create_auto_pr(ticket_name, github_token=None):
         # Push the branch to the remote repository
         push_branch(ticket_name)
 
-        # Get the default branch name
-        default_branch = get_default_branch()
-
         # Get repository information
         owner, repo = get_repo_info()
 
-        # Get the commit message
+        # Get the default branch name
+        default_branch = get_default_branch()
+
+        # Get Jira ticket information
+        print_info(f"Fetching Jira ticket information for {ticket_name}...")
+        jira_info = get_jira_issue_info(ticket_name)
+        
+        if 'error' in jira_info:
+            raise ValueError(f"Error fetching Jira ticket info: {jira_info['error']}")
+        
+        print_success("Jira ticket information fetched successfully.")
+
+        # Prepare data for BudBot
+        jira_info_str = json.dumps(jira_info, indent=2)
         commit_message = get_commit_message(ticket_name)
 
-        # Create the pull request
-        first_line = commit_message.split('\n')[0]
-        pr_title = f"[{ticket_name}] {first_line}"  # Use first line of commit message as PR title
-        pr_body = commit_message  # Use full commit message as PR description
+        print_info(f"Making a request to BudBot")
 
+        # Make a request to BudBot
+        url = "https://budbot.mybudsense.com/predict"
+        budbot_token = os.getenv('BUDBOT_TOKEN')
+        if not budbot_token:
+            raise ValueError("BudBot token not found. Please set the BUDBOT_TOKEN environment variable.")
         
+        system_prompt = """
+        You are an AI assistant tasked with creating pull request titles and bodies.
+        Given a Jira ticket information and a commit message, create:
+        1. A concise and informative pull request title
+        2. A detailed pull request body that summarizes the changes and their purpose
+        
+        Format your response as a JSON object with 'title' and 'body' keys.
+        """
 
+        payload = {
+            "user_query": f"{system_prompt}\n\nJira ticket info:\n{jira_info_str}\n\nCommit message:\n{commit_message}",
+            "token": budbot_token
+        }
+        headers = {'Content-Type': 'application/json'}
+
+        print_info("Sending request to BudBot...")
+        try:
+            response = requests.post(url, data=json.dumps(payload), headers=headers)
+            response.raise_for_status()
+            print_success(f"BudBot response received")
+            budbot_response = json.loads(response.text)
+            pr_title = budbot_response.get('title', f"{jira_info['main_issue']['key']}: {jira_info['main_issue']['title']}")
+            pr_body = budbot_response.get('body', None)
+            
+            if pr_body is None:
+                print_warning("BudBot did not provide a PR body. Using fallback.")
+                pr_body = f"""
+## Jira Ticket: [{jira_info['main_issue']['key']}](https://budsense.atlassian.net/browse/{jira_info['main_issue']['key']})
+
+**Status:** {jira_info['main_issue']['status']}
+
+### Description
+{jira_info['main_issue']['description']}
+
+### Subtasks
+{'None' if not jira_info['subtasks'] else ''}
+{''.join([f"- [{task['key']}] {task['title']}" for task in jira_info['subtasks']])}
+
+### Linked Issues
+{'None' if not jira_info['linked_issues'] else ''}
+{''.join([f"- {link['relationship']}: [{link['issue']['key']}] {link['issue']['title']}" for link in jira_info['linked_issues']])}
+
+---
+Please review the changes and provide feedback.
+                """
+            
+            print_info(f"PR Title: {pr_title}")
+            print_info(f"PR Body: {pr_body[:100]}...")  # Print first 100 characters of PR body
+            
+        except requests.RequestException as e:
+            print_warning(f"Error making POST request to BudBot: {e}. Using fallback PR title and body.")
+            pr_title = f"{jira_info['main_issue']['key']}: {jira_info['main_issue']['title']}"
+            pr_body = "Error occurred while fetching PR content from BudBot. Please review the changes manually."
+        except json.JSONDecodeError as e:
+            print_warning(f"Error parsing BudBot response: {e}. Using fallback PR title and body.")
+            pr_title = f"{jira_info['main_issue']['key']}: {jira_info['main_issue']['title']}"
+            pr_body = "Error occurred while parsing BudBot response. Please review the changes manually."
+        
+        # Create the pull request
+        print_info("Creating pull request with generated title and body...")
         pr_url = create_pull_request(owner, repo, pr_title, pr_body, ticket_name, default_branch, github_token)
 
         print_success("Auto PR process completed successfully.")
         return pr_url
+
     except Exception as e:
         print_error(f"Error in create_auto_pr: {str(e)}")
         raise
@@ -162,7 +241,7 @@ if __name__ == "__main__":
     ticket_name = sys.argv[1]
     try:
         pr_url = create_auto_pr(ticket_name)
-        print(f"Pull request created: {pr_url}")
+        print_success(f"Pull request created: {pr_url}")
     except ValueError as e:
         print_error(str(e))
         sys.exit(1)

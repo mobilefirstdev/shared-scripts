@@ -42,25 +42,24 @@ def get_jira_issue_info(issue_key):
     api_token = os.getenv('JIRA_API_TOKEN')
 
     if not email or not api_token:
-        return json.dumps({"error": "JIRA_EMAIL or JIRA_API_TOKEN not set in .env file"})
+        return {"error": "JIRA_EMAIL or JIRA_API_TOKEN not set in .env file"}
 
     auth = HTTPBasicAuth(email, api_token)
     headers = {"Accept": "application/json"}
 
     try:
         main_issue = get_issue_details(issue_key, auth, headers)
-        
         result = {
             "main_issue": format_issue_details(main_issue),
             "subtasks": [],
             "linked_issues": []
         }
-        
+
         # Get subtasks
         for subtask in main_issue['fields'].get('subtasks', []):
             subtask_data = get_issue_details(subtask['key'], auth, headers)
             result["subtasks"].append(format_issue_details(subtask_data))
-        
+
         # Get linked issues
         for link in main_issue['fields'].get('issuelinks', []):
             if 'outwardIssue' in link:
@@ -75,25 +74,18 @@ def get_jira_issue_info(issue_key):
                     "relationship": f"This issue {link['type']['inward']} by",
                     "issue": format_issue_details(linked_issue)
                 })
-        
-        return json.dumps(result, indent=2)
-        
+
+        return result
+
     except requests.exceptions.HTTPError as e:
-        return json.dumps({"error": f"HTTP Error occurred: {str(e)}"})
+        return {"error": f"HTTP Error occurred: {str(e)}"}
     except requests.exceptions.RequestException as e:
-        return json.dumps({"error": f"An error occurred while making the request: {str(e)}"})
+        return {"error": f"An error occurred while making the request: {str(e)}"}
     except KeyError as e:
-        return json.dumps({"error": f"Error parsing the response: {str(e)}"})
+        return {"error": f"Error parsing the response: {str(e)}"}
 
 # Example usage
-issue_key = input("Enter the Jira issue key: ")
-result = get_jira_issue_info(issue_key)
-
-# Print the result to console
-print(result)
-
-# Save the result to a file
-with open('jira_ticket_helper.json', 'w') as f:
-    f.write(result)
-
-print(f"\nThe JSON data has been saved to 'jira_ticket_helper.json'")
+if __name__ == "__main__":
+    issue_key = input("Enter the Jira issue key: ")
+    result = get_jira_issue_info(issue_key)
+    print(json.dumps(result, indent=2))
