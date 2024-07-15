@@ -3,7 +3,7 @@ import subprocess
 import requests
 import json
 from dotenv import load_dotenv
-from automation.jira_ticket_helper.main import get_jira_issue_info
+from jira_ticket_helper.main import get_jira_issue_info
 
 # Load environment variables from .env file
 print("Loading environment variables...")
