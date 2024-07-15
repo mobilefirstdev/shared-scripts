@@ -79,6 +79,12 @@ def create_pull_request(ticket_name):
         print(f"Return code: {result.returncode}")
         print(f"Error output: {result.stderr}")
         print(f"Standard output: {result.stdout}")
+        
+        if "422" in result.stdout:
+            print_warning("It seems the branch already exists on the remote. You may need to update the existing pull request or create a new one manually.")
+        elif "404" in result.stdout:
+            print_warning("The repository might not exist or you may not have the necessary permissions. Please check your GitHub access and repository settings.")
+        
         return False
 
 def main():

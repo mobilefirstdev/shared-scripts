@@ -95,6 +95,14 @@ def create_pull_request(owner, repo, title, body, head, base, github_token):
     else:
         raise ValueError(f"Failed to create pull request. Status code: {response.status_code}. Response: {response.text}")
 
+def push_branch(branch_name):
+    """Push the branch to the remote repository."""
+    print_info(f"Pushing branch {branch_name} to remote...")
+    result = run_command(f"git push -u origin {branch_name}")
+    if result is None:
+        raise ValueError(f"Failed to push branch {branch_name} to remote.")
+    print_success(f"Branch {branch_name} pushed to remote successfully.")
+
 def create_auto_pr(ticket_name, github_token=None):
     """
     Main function to create an automatic pull request.
@@ -117,6 +125,9 @@ def create_auto_pr(ticket_name, github_token=None):
             raise ValueError("GitHub token not found. Please provide it as an argument or set the GITHUB_TOKEN environment variable.")
 
     try:
+        # Push the branch to the remote repository
+        push_branch(ticket_name)
+
         # Get the default branch name
         default_branch = get_default_branch()
 
