@@ -1,6 +1,7 @@
 import sys
 import os
 import subprocess
+import json
 from git_change_processor.main import process_git_changes
 from llm_handler.main import generate_commit_message
 
@@ -45,6 +46,14 @@ def create_pull_request(ticket_name):
         print_error("Failed to create pull request")
         print(result.stderr)
 
+def parse_commit_message(json_message):
+    try:
+        message_obj = json.loads(json_message)
+        return message_obj.get("response", "").strip().strip('"')
+    except json.JSONDecodeError:
+        print_error("Failed to parse commit message JSON")
+        return None
+
 def main():
     print_step(1, "Initializing integrator script")
     if len(sys.argv) < 2:
@@ -84,23 +93,27 @@ def main():
         sys.exit(1)
 
     print_step(5, "Generating commit message")
-    commit_message = generate_commit_message(ticket_name, csv_file_path)
+    commit_message_json = generate_commit_message(ticket_name, csv_file_path)
 
-    if commit_message:
-        print_success("Commit message generated successfully.")
-        print("\nGenerated commit message:")
-        print(f"{GREEN}{commit_message}{RESET}")
-        
-        print_step(6, "Committing changes with generated message")
-        commit_result = run_command(f'git commit -m "{commit_message}"')
-        if commit_result.returncode == 0:
-            print_success("Changes committed successfully.")
+    if commit_message_json:
+        commit_message = parse_commit_message(commit_message_json)
+        if commit_message:
+            print_success("Commit message generated successfully.")
+            print("\nGenerated commit message:")
+            print(f"{GREEN}{commit_message}{RESET}")
+            
+            print_step(6, "Committing changes with generated message")
+            commit_result = run_command(f'git commit -m "{commit_message}"')
+            if commit_result.returncode == 0:
+                print_success("Changes committed successfully.")
+            else:
+                print_error("Failed to commit changes.")
+                sys.exit(1)
+            
+            if create_pr:
+                create_pull_request(ticket_name)
         else:
-            print_error("Failed to commit changes.")
-            sys.exit(1)
-        
-        if create_pr:
-            create_pull_request(ticket_name)
+            print_error("Failed to parse commit message.")
     else:
         print_error("Failed to generate commit message.")
 
