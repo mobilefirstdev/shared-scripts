@@ -34,15 +34,28 @@ def find_csv_file(repo_root):
     csv_file_path = os.path.join(repo_root, 'autoCommitArtifact.csv')
     return csv_file_path if os.path.exists(csv_file_path) else None
 
+def create_pull_request(ticket_name):
+    print_step(7, "Creating pull request")
+    auto_pr_script = os.path.join(os.path.dirname(__file__), 'auto_pr', 'main.py')
+    result = run_command(f"python {auto_pr_script} {ticket_name}")
+    if result.returncode == 0:
+        print_success("Pull request created successfully")
+        print(result.stdout)
+    else:
+        print_error("Failed to create pull request")
+        print(result.stderr)
+
 def main():
     print_step(1, "Initializing integrator script")
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         print_error("Error: Incorrect number of arguments")
-        print("Usage: python integrator.py <ticketName>")
+        print("Usage: python integrator.py <ticketName> [PR=true]")
         sys.exit(1)
 
     ticket_name = sys.argv[1]
+    create_pr = any(arg.lower() == "pr=true" for arg in sys.argv[2:])
     print(f"Ticket name: {ticket_name}")
+    print(f"Create PR: {'Yes' if create_pr else 'No'}")
 
     print_step(2, "Detecting repository root")
     repo_root = find_repo_root()
@@ -77,10 +90,21 @@ def main():
         print_success("Commit message generated successfully.")
         print("\nGenerated commit message:")
         print(f"{GREEN}{commit_message}{RESET}")
+        
+        print_step(6, "Committing changes with generated message")
+        commit_result = run_command(f'git commit -m "{commit_message}"')
+        if commit_result.returncode == 0:
+            print_success("Changes committed successfully.")
+        else:
+            print_error("Failed to commit changes.")
+            sys.exit(1)
+        
+        if create_pr:
+            create_pull_request(ticket_name)
     else:
         print_error("Failed to generate commit message.")
 
-    print_step(6, "Integration process complete")
+    print_step(8, "Integration process complete")
 
 if __name__ == "__main__":
     main()
