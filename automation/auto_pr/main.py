@@ -1,4 +1,3 @@
-import sys
 import os
 import subprocess
 import requests
@@ -41,8 +40,7 @@ def get_default_branch():
     print_info("Fetching default branch name from origin...")
     result = run_command("git remote show origin | grep 'HEAD branch' | cut -d' ' -f5")
     if result is None:
-        print_error("Failed to fetch default branch name.")
-        sys.exit(1)
+        raise ValueError("Failed to fetch default branch name.")
     print_success(f"Default branch: {result}")
     return result
 
@@ -51,8 +49,7 @@ def get_repo_info():
     print_info("Fetching repository information...")
     remote_url = run_command("git config --get remote.origin.url")
     if remote_url is None:
-        print_error("Failed to get remote URL.")
-        sys.exit(1)
+        raise ValueError("Failed to get remote URL.")
     
     # Extract repo from the URL
     parts = remote_url.split('/')
@@ -68,20 +65,14 @@ def get_commit_message(ticket_name):
     print_info(f"Fetching commit message for branch {ticket_name}...")
     result = run_command(f"git log -1 --pretty=%B {ticket_name}")
     if result is None:
-        print_error("Failed to fetch commit message.")
-        sys.exit(1)
+        raise ValueError("Failed to fetch commit message.")
     print_success("Commit message fetched successfully.")
     return result
 
-def create_pull_request(owner, repo, title, body, head, base):
+def create_pull_request(owner, repo, title, body, head, base, github_token):
     """Create a pull request using GitHub API."""
     print_info("Creating pull request...")
     
-    github_token = os.getenv('GITHUB_TOKEN')
-    if not github_token:
-        print_error("GitHub token not found. Please set the GITHUB_TOKEN environment variable.")
-        sys.exit(1)
-
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls"
     headers = {
         "Authorization": f"token {github_token}",
@@ -99,13 +90,30 @@ def create_pull_request(owner, repo, title, body, head, base):
     if response.status_code == 201:
         pr_data = response.json()
         print_success(f"Pull request created successfully. PR URL: {pr_data['html_url']}")
+        return pr_data['html_url']
     else:
-        print_error(f"Failed to create pull request. Status code: {response.status_code}")
-        print_error(f"Response: {response.text}")
-        sys.exit(1)
+        raise ValueError(f"Failed to create pull request. Status code: {response.status_code}. Response: {response.text}")
 
-def main(ticket_name):
+def create_auto_pr(ticket_name, github_token=None):
+    """
+    Main function to create an automatic pull request.
+    
+    Args:
+        ticket_name (str): The name of the ticket/branch for which to create a PR.
+        github_token (str, optional): GitHub API token. If not provided, it will be read from environment variables.
+    
+    Returns:
+        str: The URL of the created pull request.
+    
+    Raises:
+        ValueError: If any step in the process fails.
+    """
     print_info(f"Starting auto PR process for ticket: {ticket_name}")
+
+    if not github_token:
+        github_token = os.getenv('GITHUB_TOKEN')
+        if not github_token:
+            raise ValueError("GitHub token not found. Please provide it as an argument or set the GITHUB_TOKEN environment variable.")
 
     # Get the default branch name
     default_branch = get_default_branch()
@@ -120,14 +128,22 @@ def main(ticket_name):
     first_line = commit_message.split('\n')[0]
     pr_title = f"[{ticket_name}] {first_line}"  # Use first line of commit message as PR title
     pr_body = commit_message  # Use full commit message as PR description
-    create_pull_request(owner, repo, pr_title, pr_body, ticket_name, default_branch)
+    pr_url = create_pull_request(owner, repo, pr_title, pr_body, ticket_name, default_branch, github_token)
 
     print_success("Auto PR process completed successfully.")
+    return pr_url
 
 if __name__ == "__main__":
+    import sys
+    
     if len(sys.argv) != 2:
         print_error("Usage: python auto_pr_script.py <ticketName>")
         sys.exit(1)
     
     ticket_name = sys.argv[1]
-    main(ticket_name)
+    try:
+        pr_url = create_auto_pr(ticket_name)
+        print(f"Pull request created: {pr_url}")
+    except ValueError as e:
+        print_error(str(e))
+        sys.exit(1)

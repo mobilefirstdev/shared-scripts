@@ -28,12 +28,8 @@ def run_command(command):
     return result
 
 def get_changed_files():
-    """Get a list of all changed, new, and deleted files."""
-    # Get staged changes
     staged = run_command("git diff --cached --name-status")
-    # Get unstaged changes
     unstaged = run_command("git diff --name-status")
-    # Get untracked files
     untracked = run_command("git ls-files --others --exclude-standard")
 
     files = set()
@@ -47,7 +43,6 @@ def get_changed_files():
     return list(files)
 
 def parse_git_status(status_output):
-    """Parse git status output and return a list of (file, status) tuples."""
     files = []
     for line in status_output.splitlines():
         parts = line.split(maxsplit=1)
@@ -103,16 +98,10 @@ def process_file(file_path, status, repo_name, repo_root):
         print_error(f"Error processing file {file_path}: {str(e)}")
         return False
 
-def main():
-    if len(sys.argv) != 2:
-        print("Usage: python script.py <ticketName>")
-        sys.exit(1)
-
-    ticket_name = sys.argv[1]
-
+def process_git_changes(ticket_name):
     git_root = run_command("git rev-parse --show-toplevel")
     if not git_root:
-        sys.exit(1)
+        return False
     git_root = git_root.stdout.strip()
     os.chdir(git_root)
 
@@ -121,30 +110,30 @@ def main():
 
     current_branch = run_command("git rev-parse --abbrev-ref HEAD")
     if not current_branch:
-        sys.exit(1)
+        return False
     current_branch = current_branch.stdout.strip()
     print(f"Current branch: {current_branch}")
 
     changed_files = get_changed_files()
     if not changed_files:
         print("No changes detected in the current branch.")
-        sys.exit(0)
+        return False
 
     print("Changes detected in the current branch.")
     
     print("\nStaging all changes...")
     if not run_command("git add -A"):
-        sys.exit(1)
+        return False
     print_success("All changes have been staged.")
 
     print(f"\nCreating new branch '{ticket_name}' from '{current_branch}'...")
     if not run_command(f"git checkout -b {ticket_name}"):
-        sys.exit(1)
+        return False
     print_success(f"Successfully created and checked out branch '{ticket_name}'.")
 
     print("\nCommitting changes in the new branch...")
     if not run_command(f"git commit -m 'Initial commit for {ticket_name}'"):
-        sys.exit(1)
+        return False
     print_success("Changes committed successfully.")
 
     csv_filename = "autoCommitArtifact.csv"
@@ -160,11 +149,19 @@ def main():
 
     print(f"\nSwitching back to '{current_branch}'...")
     if not run_command(f"git checkout {current_branch}"):
-        sys.exit(1)
+        return False
 
     print_success(f"\nScript completed. You are now on branch '{current_branch}'.")
     print_success(f"A new branch '{ticket_name}' has been created with all changes.")
     print_success(f"The {csv_filename} has been created in the '{current_branch}' branch but is not committed.")
 
+    return True
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) != 2:
+        print("Usage: python script.py <ticketName>")
+        sys.exit(1)
+    
+    ticket_name = sys.argv[1]
+    result = process_git_changes(ticket_name)
+    sys.exit(0 if result else 1)

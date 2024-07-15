@@ -137,13 +137,26 @@ def process_file(file_path, current_branch, ticket_number, temp_folder, index):
         print_error(f"Error processing file {file_path}: {str(e)}")
         print("Skipping this file and continuing with the next one.")
 
-def main(ticket_number):
-    print(f"Starting script with ticket number: {ticket_number}")
+def generate_commit_message(ticket_number, csv_file_path=None):
+    """
+    Generate a commit message based on the changes in the given ticket.
+    
+    Args:
+    ticket_number (str): The ticket number or branch name containing the changes.
+    csv_file_path (str, optional): Path to the CSV file containing file paths. If not provided,
+                                   it will look for 'autoCommitArtifact.csv' in the repo root.
+    
+    Returns:
+    str: The generated commit message.
+    """
+    print(f"Starting commit message generation for ticket: {ticket_number}")
     
     repo_root = run_command("git rev-parse --show-toplevel").stdout.strip()
     print(f"Git repository root: {repo_root}")
     
-    csv_file_path = os.path.join(repo_root, 'autoCommitArtifact.csv')
+    if csv_file_path is None:
+        csv_file_path = os.path.join(repo_root, 'autoCommitArtifact.csv')
+    
     file_paths = []
     print(f"Reading CSV file: {csv_file_path}")
     try:
@@ -154,10 +167,10 @@ def main(ticket_number):
         print(f"Successfully read {len(file_paths)} file path(s) from the CSV.")
     except FileNotFoundError:
         print_error(f"Error: CSV file '{csv_file_path}' not found.")
-        sys.exit(1)
+        return None
     except csv.Error as e:
         print_error(f"Error reading CSV file: {e}")
-        sys.exit(1)
+        return None
     
     current_branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], text=True).strip()
     print(f"Current git branch (base branch): {current_branch}")
@@ -178,12 +191,19 @@ def main(ticket_number):
             f.write(final_commit_message)
         print(f"Created final commit message file: {final_commit_file}")
     
-    print("\nScript execution completed.")
+    print("\nCommit message generation completed.")
+    return final_commit_message
 
+# Example usage:
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python script_name.py <ticketNumber>")
         sys.exit(1)
     
     ticket_number = sys.argv[1]
-    main(ticket_number)
+    commit_message = generate_commit_message(ticket_number)
+    if commit_message:
+        print("Generated commit message:")
+        print(commit_message)
+    else:
+        print("Failed to generate commit message.")

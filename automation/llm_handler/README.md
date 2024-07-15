@@ -1,92 +1,81 @@
-# Auto Commit Script
+# LLM Commit Message Generator
 
-## Table of Contents
-1. [Introduction](#introduction)
-2. [Prerequisites](#prerequisites)
-3. [Installation](#installation)
-4. [Usage](#usage)
-5. [How It Works](#how-it-works)
-6. [Output](#output)
-7. [Troubleshooting](#troubleshooting)
-8. [Contributing](#contributing)
+## Overview
 
-## Introduction
+This script, located in `llm_handler/main.py`, is designed to automatically generate meaningful commit messages for changes in a Git repository. It uses an AI-powered service to analyze file changes and create descriptive commit messages.
 
-The Auto Commit Script (`main.py`) is a Python tool designed to automate the process of generating commit messages for changes in a Git repository. It analyzes the differences between the current branch and a specified ticket branch, creates individual commit messages for each changed file, and then combines these into a comprehensive, final commit message.
+## Purpose
 
-This tool is useful for developers who want to maintain detailed, consistent commit messages across their project, especially when dealing with multiple file changes in a single commit.
+The main purpose of this script is to:
+1. Analyze changes between two Git branches (typically a feature branch and the main branch).
+2. Generate individual commit messages for each changed file.
+3. Combine these messages into a comprehensive, coherent commit message for the entire change set.
 
-## Prerequisites
+This tool is particularly useful in CI/CD pipelines or for developers who want to automate the process of writing detailed commit messages.
 
-Before you can use this script, ensure you have the following:
+## Inputs
 
-- Python 3.6 or higher installed on your system
-- Git installed and configured on your machine
-- Access to the repository you want to analyze
-- A file named `autoCommitArtifact.csv` in the root of your repository, containing the paths of files to be analyzed
+The script primarily requires one input:
 
-## Installation
+1. `ticket_number` (string): This is typically a branch name or ticket identifier that contains the changes to be analyzed.
 
-1. Ensure that the script `main.py` is located in the `shared-scripts/automation/llm_handler/` directory of your repository.
+Optional input:
+2. `csv_file_path` (string): Path to a CSV file containing the list of changed files. If not provided, the script will look for a file named `autoCommitArtifact.csv` in the root of the Git repository.
 
-2. Install the required Python package:
-   ```
-   pip install requests
-   ```
+## Outputs
 
-3. Make sure you have the necessary permissions to execute the script and access the Git repository.
+The script returns a string containing the generated commit message.
+
+Additionally, it creates several files in a `TEMP` directory within the Git repository:
+- Individual merged content files for each changed file.
+- Individual commit message files for each changed file.
+- A final commit message file (`final_commit_message.txt`).
+
+## Side Effects
+
+1. Creates a `TEMP` directory in the Git repository root.
+2. Writes temporary files to the `TEMP` directory.
+3. Makes HTTP requests to an external AI service for generating commit messages.
 
 ## Usage
 
-To use the script, follow these steps:
+### As a module in a pipeline
 
-1. Open a terminal or command prompt.
+```python
+from llm_handler.main import generate_commit_message
 
-2. Navigate to the root of your Git repository (the `shared-scripts` directory).
+ticket_number = "TICKET-123"
+commit_message = generate_commit_message(ticket_number)
 
-3. Run the script with the following command:
-   ```
-   python3 automation/llm_handler/main.py <ticketNumber>
-   ```
-   Replace `<ticketNumber>` with the name of the branch containing your changes.
+if commit_message:
+    print("Generated commit message:")
+    print(commit_message)
+else:
+    print("Failed to generate commit message.")
+```
 
-4. The script will process the files, generate commit messages, and create a final combined commit message.
+### As a standalone script
 
-## How It Works
+```bash
+python llm_handler/main.py TICKET-123
+```
 
-1. The script reads the `autoCommitArtifact.csv` file to get the list of files to analyze.
+## Dependencies
 
-2. For each file, it compares the content between the current branch and the specified ticket branch.
+- Python 3.x
+- `requests` library
+- Git (must be installed and accessible in the system path)
 
-3. It categorizes each file as 'new', 'modified', or 'deleted'.
 
-4. For new and modified files, it generates an individual commit message using an AI model.
 
-5. All individual commit messages are combined.
+## Error Handling
 
-6. A final, comprehensive commit message is generated based on all the individual messages.
+- The script will print error messages in red to the console.
+- If critical errors occur, the `generate_commit_message` function will return `None`.
 
-7. The script saves all outputs in a `TEMP` folder within your repository.
+## Limitations
 
-## Output
+- Requires access to the specified AI service.
+- Assumes the Git repository is in a clean state.
+- Large repositories or extensive changes may increase processing time.
 
-The script generates the following outputs in the `TEMP` folder:
-
-- `new_X.txt` or `modified_X.txt`: Content comparison for each file
-- `new_X_llm.txt` or `modified_X_llm.txt`: Individual commit messages for each file
-- `final_commit_message.txt`: The final, combined commit message
-
-Where `X` is a number representing the order in which the files were processed.
-
-## Troubleshooting
-
-If you encounter any issues:
-
-1. Ensure all prerequisites are correctly installed.
-2. Check that the `autoCommitArtifact.csv` file exists in the root of your repository and is correctly formatted.
-3. Verify that the `main.py` script is located in the `shared-scripts/automation/llm_handler/` directory.
-4. Ensure you're running the script from the `shared-scripts` directory.
-5. Verify that you have the necessary permissions to access the Git repository and create files.
-6. Check your internet connection, as the script needs to make API calls.
-
-If problems persist, please check the error messages in the console output for more information.
