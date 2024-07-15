@@ -102,12 +102,20 @@ def main():
             print("\nGenerated commit message:")
             print(f"{GREEN}{commit_message}{RESET}")
             
-            print_step(6, "Committing changes with generated message")
-            commit_result = run_command(f'git commit -m "{commit_message}"')
-            if commit_result.returncode == 0:
-                print_success("Changes committed successfully.")
+            print_step(6, "Updating commit message")
+            
+            # Switch to the ticket branch
+            switch_result = run_command(f"git checkout {ticket_name}")
+            if switch_result.returncode != 0:
+                print_error(f"Failed to switch to branch {ticket_name}")
+                sys.exit(1)
+            
+            # Amend the commit with the new message
+            amend_result = run_command(f'git commit --amend -m "{commit_message}"')
+            if amend_result.returncode == 0:
+                print_success("Commit message updated successfully.")
             else:
-                print_error("Failed to commit changes.")
+                print_error("Failed to update commit message.")
                 sys.exit(1)
             
             if create_pr:
