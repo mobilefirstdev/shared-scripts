@@ -83,7 +83,7 @@ def should_ignore_file(file_path, repo_root):
             return True
     return False
 
-def process_file(file_path, status, repo_name, repo_root):
+def process_file(file_path, status, repo_root):
     try:
         full_path = os.path.join(repo_root, file_path)
         if should_ignore_file(full_path, repo_root):
@@ -141,11 +141,11 @@ def process_git_changes(ticket_name):
     print(f"\nCreating {csv_filename}...")
     with open(csv_path, 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
-        csv_writer.writerow(["File Path", "Absolute Path", "Status"])
+        csv_writer.writerow(["File Path", "Status"])
         for file, status in changed_files:
-            if process_file(file, status, repo_name, git_root):
+            if process_file(file, status, git_root):
                 absolute_path = os.path.abspath(os.path.join(git_root, file))
-                csv_writer.writerow([f"{repo_name}/{file}", absolute_path, status])
+                csv_writer.writerow([absolute_path, status])
     print_success(f"{csv_filename} created successfully.")
 
     print(f"\nSwitching back to '{current_branch}'...")
