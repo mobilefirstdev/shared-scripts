@@ -18,6 +18,24 @@ def print_success(message):
 def print_error(message):
     print(f"{RED}{message}{RESET}")
 
+def find_csv_file():
+    # Start from the directory of this script
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Go up to the parent directory of 'shared-scripts'
+    while os.path.basename(current_dir) != 'shared-scripts':
+        parent_dir = os.path.dirname(current_dir)
+        if parent_dir == current_dir:  # We've reached the root directory
+            return None
+        current_dir = parent_dir
+    
+    # Go up one more level to the parent of 'shared-scripts'
+    parent_of_shared_scripts = os.path.dirname(current_dir)
+    
+    # Look for the CSV file
+    csv_file_path = os.path.join(parent_of_shared_scripts, 'autoCommitArtifact.csv')
+    return csv_file_path if os.path.exists(csv_file_path) else None
+
 def main():
     print_step(1, "Initializing integrator script")
     if len(sys.argv) != 2:
@@ -38,13 +56,12 @@ def main():
     print_success("Changes detected in the repository.")
 
     print_step(3, "Locating CSV file")
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    csv_file_path = os.path.join(repo_root, 'autoCommitArtifact.csv')
+    csv_file_path = find_csv_file()
     
-    if os.path.exists(csv_file_path):
+    if csv_file_path:
         print_success(f"CSV file found: {csv_file_path}")
     else:
-        print_error(f"Error: CSV file not found at {csv_file_path}")
+        print_error("Error: CSV file 'autoCommitArtifact.csv' not found in the parent folder of shared-scripts")
         sys.exit(1)
 
     print_step(4, "Generating commit message")
