@@ -141,10 +141,11 @@ def process_git_changes(ticket_name):
     print(f"\nCreating {csv_filename}...")
     with open(csv_path, 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
-        csv_writer.writerow(["File Path", "Status"])
+        csv_writer.writerow(["File Path", "Absolute Path", "Status"])
         for file, status in changed_files:
             if process_file(file, status, repo_name, git_root):
-                csv_writer.writerow([f"{repo_name}/{file}", status])
+                absolute_path = os.path.abspath(os.path.join(git_root, file))
+                csv_writer.writerow([f"{repo_name}/{file}", absolute_path, status])
     print_success(f"{csv_filename} created successfully.")
 
     print(f"\nSwitching back to '{current_branch}'...")
