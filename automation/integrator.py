@@ -4,11 +4,16 @@ import subprocess
 import json
 from git_change_processor.main import process_git_changes
 from llm_handler.main import generate_commit_message
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # ANSI color codes for colorful output
 GREEN = '\033[0;32m'
 YELLOW = '\033[0;33m'
 RED = '\033[0;31m'
+BLUE = '\033[0;34m'
 RESET = '\033[0m'
 
 def print_step(step_num, message):
@@ -19,6 +24,12 @@ def print_success(message):
 
 def print_error(message):
     print(f"{RED}{message}{RESET}")
+
+def print_info(message):
+    print(f"{BLUE}{message}{RESET}")
+
+def print_warning(message):
+    print(f"{YELLOW}{message}{RESET}")
 
 def run_command(command):
     result = subprocess.run(command, capture_output=True, text=True, shell=True)
@@ -35,17 +46,6 @@ def find_csv_file(repo_root):
     csv_file_path = os.path.join(repo_root, 'autoCommitArtifact.csv')
     return csv_file_path if os.path.exists(csv_file_path) else None
 
-def create_pull_request(ticket_name):
-    print_step(7, "Creating pull request")
-    auto_pr_script = os.path.join(os.path.dirname(__file__), 'auto_pr', 'main.py')
-    result = run_command(f"python {auto_pr_script} {ticket_name}")
-    if result.returncode == 0:
-        print_success("Pull request created successfully")
-        print(result.stdout)
-    else:
-        print_error("Failed to create pull request")
-        print(result.stderr)
-
 def parse_commit_message(json_message):
     try:
         message_obj = json.loads(json_message)
@@ -53,6 +53,33 @@ def parse_commit_message(json_message):
     except json.JSONDecodeError:
         print_error("Failed to parse commit message JSON")
         return None
+
+def create_pull_request(ticket_name):
+    print_step(7, "Creating pull request")
+    auto_pr_script = os.path.join(os.path.dirname(__file__), 'auto_pr', 'main.py')
+    
+    if not os.path.exists(auto_pr_script):
+        print_error(f"Error: auto_pr script not found at {auto_pr_script}")
+        return False
+
+    github_token = os.getenv('GITHUB_TOKEN')
+    if not github_token:
+        print_error("GitHub token not found. Please set the GITHUB_TOKEN environment variable.")
+        return False
+
+    print_info(f"Running auto_pr script: {auto_pr_script}")
+    result = run_command(f"python {auto_pr_script} {ticket_name}")
+    
+    if result.returncode == 0:
+        print_success("Pull request created successfully")
+        print(result.stdout)
+        return True
+    else:
+        print_error("Failed to create pull request")
+        print(f"Return code: {result.returncode}")
+        print(f"Error output: {result.stderr}")
+        print(f"Standard output: {result.stdout}")
+        return False
 
 def main():
     print_step(1, "Initializing integrator script")
@@ -119,7 +146,9 @@ def main():
                 sys.exit(1)
             
             if create_pr:
-                create_pull_request(ticket_name)
+                pr_created = create_pull_request(ticket_name)
+                if not pr_created:
+                    print_warning("Pull request creation failed, but other steps completed successfully.")
         else:
             print_error("Failed to parse commit message.")
     else:

@@ -28,6 +28,7 @@ def print_error(message):
 
 def run_command(command):
     """Run a shell command and return its output."""
+    print_info(f"Running command: {command}")
     result = subprocess.run(command, capture_output=True, text=True, shell=True)
     if result.returncode != 0:
         print_error(f"Error executing command: {command}")
@@ -115,23 +116,27 @@ def create_auto_pr(ticket_name, github_token=None):
         if not github_token:
             raise ValueError("GitHub token not found. Please provide it as an argument or set the GITHUB_TOKEN environment variable.")
 
-    # Get the default branch name
-    default_branch = get_default_branch()
+    try:
+        # Get the default branch name
+        default_branch = get_default_branch()
 
-    # Get repository information
-    owner, repo = get_repo_info()
+        # Get repository information
+        owner, repo = get_repo_info()
 
-    # Get the commit message
-    commit_message = get_commit_message(ticket_name)
+        # Get the commit message
+        commit_message = get_commit_message(ticket_name)
 
-    # Create the pull request
-    first_line = commit_message.split('\n')[0]
-    pr_title = f"[{ticket_name}] {first_line}"  # Use first line of commit message as PR title
-    pr_body = commit_message  # Use full commit message as PR description
-    pr_url = create_pull_request(owner, repo, pr_title, pr_body, ticket_name, default_branch, github_token)
+        # Create the pull request
+        first_line = commit_message.split('\n')[0]
+        pr_title = f"[{ticket_name}] {first_line}"  # Use first line of commit message as PR title
+        pr_body = commit_message  # Use full commit message as PR description
+        pr_url = create_pull_request(owner, repo, pr_title, pr_body, ticket_name, default_branch, github_token)
 
-    print_success("Auto PR process completed successfully.")
-    return pr_url
+        print_success("Auto PR process completed successfully.")
+        return pr_url
+    except Exception as e:
+        print_error(f"Error in create_auto_pr: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     import sys
