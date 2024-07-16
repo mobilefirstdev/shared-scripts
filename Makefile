@@ -201,3 +201,8 @@ aiCommit:
 	@$(eval PR_FLAG := $(if $(filter true,$(PR)),PR=true,PR=false))
 	@echo "Running AI-assisted commit for ticket $(TICKET) with $(PR_FLAG)"
 	@$(PYTHON) $(INTEGRATOR_SCRIPT) $(TICKET) $(PR_FLAG)
+
+# Ignore undefined variables
+.PHONY: $(TICKET) PR
+$(TICKET) PR:
+	@:
