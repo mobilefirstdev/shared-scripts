@@ -191,12 +191,13 @@ INTEGRATOR_SCRIPT := shared-scripts/automation/integrator.py
 PYTHON := python3
 
 .PHONY: aiCommit
+
+# Target for AI-assisted commit
 aiCommit:
-	@if [ -z "$(filter-out $@,$(MAKECMDGOALS))" ]; then \
-		echo "Usage: make aiCommit <ticketnumber> [PR]"; \
+	@if [ -z "$(TICKET)" ]; then \
+		echo "Usage: make aiCommit TICKET=<ticketnumber> [PR=true]"; \
 		exit 1; \
 	fi
-	@$(eval TICKET := $(word 2,$(MAKECMDGOALS)))
-	@$(eval PR_FLAG := $(if $(filter PR,$(MAKECMDGOALS)),PR=true,PR=false))
-	@echo "Running AI-assisted commit for ticket $(TICKET) with PR=$(PR_FLAG)"
+	@$(eval PR_FLAG := $(if $(filter true,$(PR)),PR=true,PR=false))
+	@echo "Running AI-assisted commit for ticket $(TICKET) with $(PR_FLAG)"
 	@$(PYTHON) $(INTEGRATOR_SCRIPT) $(TICKET) $(PR_FLAG)
