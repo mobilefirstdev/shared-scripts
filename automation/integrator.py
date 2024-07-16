@@ -16,7 +16,6 @@ RED = '\033[0;31m'
 BLUE = '\033[0;34m'
 RESET = '\033[0m'
 
-# Functions for printing colored output
 def print_step(step_num, message):
     """Print a step number and message in yellow."""
     print(f"\n{YELLOW}Step {step_num}: {message}{RESET}")
@@ -113,26 +112,58 @@ def create_pull_request(ticket_name):
         
         return False
 
-def rollback_changes(ticket_name):
+def rollback_changes(ticket_name, original_branch):
     """
-    Rollback all changes made during the integration process.
+    Rollback all changes made during the integration process and restore them to the original branch.
     """
     print_step("Rollback", "Rolling back changes due to error")
     
-    # Reset the current branch to its original state
-    reset_result = run_command("git reset --hard HEAD@{1}")
-    if reset_result.returncode == 0:
-        print_success("Successfully reset the branch to its original state")
+    # Check if the ticket branch exists
+    branch_exists = run_command(f"git rev-parse --verify {ticket_name}")
+    if branch_exists.returncode != 0:
+        print_warning(f"Branch {ticket_name} does not exist. No rollback needed.")
+        return
+
+    # Switch to the ticket branch
+    switch_result = run_command(f"git checkout {ticket_name}")
+    if switch_result.returncode != 0:
+        print_error(f"Failed to switch to branch {ticket_name}")
+        return
+
+    # Check if there's a commit on the ticket branch
+    commit_exists = run_command(f"git rev-list -n 1 {ticket_name}")
+    if commit_exists.returncode == 0 and commit_exists.stdout.strip():
+        # If there's a commit, cherry-pick it to the original branch
+        print_info("Commit found on ticket branch. Cherry-picking to original branch.")
+        run_command(f"git checkout {original_branch}")
+        cherry_pick_result = run_command(f"git cherry-pick {ticket_name}")
+        if cherry_pick_result.returncode != 0:
+            print_error("Failed to cherry-pick commit to original branch")
+            print_warning("You may need to manually merge changes")
+        else:
+            print_success("Successfully cherry-picked commit to original branch")
     else:
-        print_error("Failed to reset the branch")
-    
-    # Switch back to the main branch
-    switch_result = run_command("git checkout main")
-    if switch_result.returncode == 0:
-        print_success("Successfully switched back to the main branch")
-    else:
-        print_error("Failed to switch back to the main branch")
-    
+        # If there's no commit, stash changes and apply to original branch
+        print_info("No commit found on ticket branch. Stashing changes.")
+        stash_result = run_command("git stash push -u")
+        if stash_result.returncode != 0:
+            print_error("Failed to stash changes")
+            return
+
+        # Switch back to the original branch
+        switch_result = run_command(f"git checkout {original_branch}")
+        if switch_result.returncode != 0:
+            print_error(f"Failed to switch back to branch {original_branch}")
+            return
+
+        # Apply the stashed changes
+        apply_result = run_command("git stash pop")
+        if apply_result.returncode != 0:
+            print_error("Failed to apply stashed changes")
+            print_warning("You may need to manually resolve conflicts")
+        else:
+            print_success("Successfully restored changes to the original branch")
+
     # Delete the ticket branch
     delete_result = run_command(f"git branch -D {ticket_name}")
     if delete_result.returncode == 0:
@@ -140,7 +171,7 @@ def rollback_changes(ticket_name):
     else:
         print_error(f"Failed to delete the {ticket_name} branch")
     
-    print_warning("All changes have been rolled back. The repository is in its original state.")
+    print_warning("All changes have been rolled back and restored to the original branch.")
 
 def get_current_branch():
     """
@@ -246,7 +277,7 @@ def main():
 
     except Exception as e:
         print_error(f"An error occurred: {str(e)}")
-        rollback_changes(ticket_name)
+        rollback_changes(ticket_name, original_branch)
         sys.exit(1)
 
     finally:

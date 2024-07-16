@@ -3,6 +3,7 @@ import subprocess
 import requests
 import json
 from dotenv import load_dotenv
+from jira_ticket_helper.main import get_jira_issue_info #should remove
 
 # Load environment variables from .env file
 load_dotenv()
