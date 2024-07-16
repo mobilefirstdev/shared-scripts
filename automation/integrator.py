@@ -84,12 +84,10 @@ def create_pull_request(ticket_name):
     print_step(7, "Creating pull request")
     auto_pr_script = os.path.join(os.path.dirname(__file__), 'auto_pr', 'main.py')
     
-    # Check if the auto_pr script exists
     if not os.path.exists(auto_pr_script):
         print_error(f"Error: auto_pr script not found at {auto_pr_script}")
         return False
 
-    # Check if the GitHub token is set
     github_token = os.getenv('GITHUB_TOKEN')
     if not github_token:
         print_error("GitHub token not found. Please set the GITHUB_TOKEN environment variable.")
@@ -108,7 +106,6 @@ def create_pull_request(ticket_name):
         print(f"Error output: {result.stderr}")
         print(f"Standard output: {result.stdout}")
         
-        # Provide more specific error messages based on common HTTP status codes
         if "422" in result.stdout:
             print_warning("It seems the branch already exists on the remote. You may need to update the existing pull request or create a new one manually.")
         elif "404" in result.stdout:
@@ -116,13 +113,55 @@ def create_pull_request(ticket_name):
         
         return False
 
+def rollback_changes(ticket_name):
+    """
+    Rollback all changes made during the integration process.
+    """
+    print_step("Rollback", "Rolling back changes due to error")
+    
+    # Reset the current branch to its original state
+    reset_result = run_command("git reset --hard HEAD@{1}")
+    if reset_result.returncode == 0:
+        print_success("Successfully reset the branch to its original state")
+    else:
+        print_error("Failed to reset the branch")
+    
+    # Switch back to the main branch
+    switch_result = run_command("git checkout main")
+    if switch_result.returncode == 0:
+        print_success("Successfully switched back to the main branch")
+    else:
+        print_error("Failed to switch back to the main branch")
+    
+    # Delete the ticket branch
+    delete_result = run_command(f"git branch -D {ticket_name}")
+    if delete_result.returncode == 0:
+        print_success(f"Successfully deleted the {ticket_name} branch")
+    else:
+        print_error(f"Failed to delete the {ticket_name} branch")
+    
+    print_warning("All changes have been rolled back. The repository is in its original state.")
+
+def get_current_branch():
+    """
+    Get the name of the current Git branch.
+    """
+    result = run_command("git rev-parse --abbrev-ref HEAD")
+    return result.stdout.strip() if result.returncode == 0 else None
+
+def switch_to_branch(branch_name):
+    """
+    Switch to the specified Git branch.
+    """
+    result = run_command(f"git checkout {branch_name}")
+    return result.returncode == 0
+
 def main():
     """
     Main function to orchestrate the integration process.
     """
     print_step(1, "Initializing integrator script")
     
-    # Check command-line arguments
     if len(sys.argv) < 2:
         print_error("Error: Incorrect number of arguments")
         print("Usage: python integrator.py <ticketName> [PR=true]")
@@ -133,75 +172,90 @@ def main():
     print(f"Ticket name: {ticket_name}")
     print(f"Create PR: {'Yes' if create_pr else 'No'}")
 
-    # Find the repository root
-    print_step(2, "Detecting repository root")
-    repo_root = find_repo_root()
-    if not repo_root:
-        print_error("Error: Unable to determine repository root")
+    # Store the original branch
+    original_branch = get_current_branch()
+    if not original_branch:
+        print_error("Failed to determine the current branch")
         sys.exit(1)
-    print_success(f"Repository root found: {repo_root}")
+    print_info(f"Starting from branch: {original_branch}")
 
-    # Detect changes in the repository
-    print_step(3, "Detecting changes in the repository")
-    os.chdir(repo_root)  # Change to repo root before processing changes
-    changes_detected = process_git_changes(ticket_name)
+    try:
+        # Find the repository root
+        print_step(2, "Detecting repository root")
+        repo_root = find_repo_root()
+        if not repo_root:
+            raise Exception("Unable to determine repository root")
+        print_success(f"Repository root found: {repo_root}")
 
-    if not changes_detected:
-        print_error("No changes detected in the repository. Exiting.")
-        sys.exit(0)
+        # Detect changes in the repository
+        print_step(3, "Detecting changes in the repository")
+        os.chdir(repo_root)
+        changes_detected = process_git_changes(ticket_name)
 
-    print_success("Changes detected in the repository.")
+        if not changes_detected:
+            raise Exception("No changes detected in the repository")
 
-    # Find the CSV file
-    print_step(4, "Locating CSV file")
-    csv_file_path = find_csv_file(repo_root)
-    
-    if csv_file_path:
+        print_success("Changes detected in the repository.")
+
+        # Find the CSV file
+        print_step(4, "Locating CSV file")
+        csv_file_path = find_csv_file(repo_root)
+        
+        if not csv_file_path:
+            raise Exception("CSV file 'autoCommitArtifact.csv' not found in the repository root")
+
         print_success(f"CSV file found: {csv_file_path}")
-    else:
-        print_error("Error: CSV file 'autoCommitArtifact.csv' not found in the repository root")
+
+        # Generate commit message
+        print_step(5, "Generating commit message")
+        commit_message_json = generate_commit_message(ticket_name, csv_file_path)
+
+        if not commit_message_json:
+            raise Exception("Failed to generate commit message")
+
+        commit_message = parse_commit_message(commit_message_json)
+        if not commit_message:
+            raise Exception("Failed to parse commit message")
+
+        print_success("Commit message generated successfully.")
+        print("\nGenerated commit message:")
+        print(f"{GREEN}{commit_message}{RESET}")
+        
+        # Update the commit message
+        print_step(6, "Updating commit message")
+        
+        # Switch to the ticket branch
+        switch_result = run_command(f"git checkout {ticket_name}")
+        if switch_result.returncode != 0:
+            raise Exception(f"Failed to switch to branch {ticket_name}")
+        
+        # Amend the commit with the new message
+        amend_result = run_command(f'git commit --amend -m "{commit_message}"')
+        if amend_result.returncode != 0:
+            raise Exception("Failed to update commit message")
+        
+        print_success("Commit message updated successfully.")
+        
+        # Create pull request if requested
+        if create_pr:
+            pr_created = create_pull_request(ticket_name)
+            if not pr_created:
+                raise Exception("Pull request creation failed")
+
+        print_step(8, "Integration process complete")
+
+    except Exception as e:
+        print_error(f"An error occurred: {str(e)}")
+        rollback_changes(ticket_name)
         sys.exit(1)
 
-    # Generate commit message
-    print_step(5, "Generating commit message")
-    commit_message_json = generate_commit_message(ticket_name, csv_file_path)
-
-    if commit_message_json:
-        commit_message = parse_commit_message(commit_message_json)
-        if commit_message:
-            print_success("Commit message generated successfully.")
-            print("\nGenerated commit message:")
-            print(f"{GREEN}{commit_message}{RESET}")
-            
-            # Update the commit message
-            print_step(6, "Updating commit message")
-            
-            # Switch to the ticket branch
-            switch_result = run_command(f"git checkout {ticket_name}")
-            if switch_result.returncode != 0:
-                print_error(f"Failed to switch to branch {ticket_name}")
-                sys.exit(1)
-            
-            # Amend the commit with the new message
-            amend_result = run_command(f'git commit --amend -m "{commit_message}"')
-            if amend_result.returncode == 0:
-                print_success("Commit message updated successfully.")
-            else:
-                print_error("Failed to update commit message.")
-                sys.exit(1)
-            
-            # Create pull request if requested
-            if create_pr:
-
-                pr_created = create_pull_request(ticket_name)
-                if not pr_created:
-                    print_warning("Pull request creation failed, but other steps completed successfully.")
+    finally:
+        # Return to the original branch
+        print_step(9, f"Returning to original branch: {original_branch}")
+        if switch_to_branch(original_branch):
+            print_success(f"Successfully returned to branch: {original_branch}")
         else:
-            print_error("Failed to parse commit message.")
-    else:
-        print_error("Failed to generate commit message.")
-
-    print_step(8, "Integration process complete")
+            print_error(f"Failed to return to branch: {original_branch}")
 
 if __name__ == "__main__":
     main()
