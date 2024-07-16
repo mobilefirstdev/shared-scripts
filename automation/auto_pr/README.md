@@ -1,109 +1,81 @@
-# Auto PR Creator
+# Auto PR Script
 
-## Overview
+## Description
 
-The Auto PR Creator is a Python script designed to automate the process of creating pull requests (PRs) on GitHub. It's particularly useful for development workflows where you want to streamline the PR creation process, especially when integrated into CI/CD pipelines.
+Auto PR Script is a Python utility designed to automate the process of creating pull requests (PRs) on GitHub. It streamlines the workflow by pushing your current branch, fetching repository information, and creating a pull request with a single command.
 
-## Location
+## Features
 
-- Folder: `auto_pr`
-- Main Script: `main.py`
+- Automatically pushes the current branch to the remote repository
+- Fetches the default branch name from the remote
+- Retrieves repository information (owner and repo name)
+- Creates a pull request using the GitHub API
+- Uses the latest commit message as the PR description
+- Supports colored console output for better readability
+- Handles errors gracefully with informative messages
 
-## Purpose
+## Prerequisites
 
-This script automates several steps in the pull request creation process:
-1. Fetches the default branch name from the remote repository
-2. Retrieves repository information
-3. Gets the latest commit message from a specified branch
-4. Creates a pull request using the GitHub API
+- Python 3.6+
+- Git installed and configured
+- GitHub account with access to the repository
+- GitHub Personal Access Token with repo scope
+
+## Installation
+
+1. Clone the repository:
+   ```
+   git clone https://github.com/your-username/auto-pr.git
+   cd auto-pr
+   ```
+
+2. Install the required dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+3. Set up your GitHub Personal Access Token:
+   - Create a `.env` file in the project root
+   - Add your GitHub token: `GITHUB_TOKEN=your_github_token_here`
 
 ## Usage
 
-### As a standalone script
+Run the script from the command line, providing the ticket name (which should match your branch name) as an argument:
 
-```bash
-python main.py <ticket_name>
+```
+python main.py <ticketName>
 ```
 
-### As an imported function
-
-```python
-from auto_pr.main import create_auto_pr
-
-pr_url = create_auto_pr("TICKET-123")
-print(f"Pull request created: {pr_url}")
+For example:
+```
+python main.py feature-123
 ```
 
-## Inputs
-
-### Command-line Usage
-- `ticket_name`: The name of the ticket/branch for which to create a PR.
-
-### Function Usage
-- `ticket_name` (str): The name of the ticket/branch for which to create a PR.
-- `github_token` (str, optional): GitHub API token. If not provided, it will be read from environment variables.
-
-## Outputs
-
-- Returns the URL of the created pull request as a string.
-
-## Side Effects
-
-1. Creates a new pull request on GitHub.
-2. Prints colored status messages to the console.
-
-## Dependencies
-
-- Python 3.x
-- Required Python packages:
-  - `requests`
-  - `python-dotenv`
-
-Install dependencies using:
-```
-pip install requests python-dotenv
-```
-
-## Environment Variables
-
-- `GITHUB_TOKEN`: Your GitHub personal access token. Required if not provided as an argument to the function.
+This will:
+1. Push the `feature-123` branch to the remote repository
+2. Fetch the default branch name (e.g., `main` or `master`)
+3. Get the repository information
+4. Use the latest commit message as the PR description
+5. Create a pull request from `feature-123` to the default branch
 
 ## Configuration
 
-- The repository owner is currently hardcoded as "mobilefirstdev". Modify this in the `get_repo_info()` function if needed.
+The script uses environment variables for configuration. You can set these in your `.env` file:
+
+- `GITHUB_TOKEN`: Your GitHub Personal Access Token (required)
 
 ## Error Handling
 
-- The script raises `ValueError` exceptions for various error conditions (e.g., failing to fetch branch information, commit messages, or create the PR).
-- When used as a standalone script, error messages are printed to the console, and the script exits with a non-zero status code.
-- When used as an imported function, exceptions are raised and should be handled by the calling code.
+The script includes comprehensive error handling:
+- It will display colored error messages for various failure scenarios
+- If any step fails, the script will exit with a non-zero status code and display an error message
 
-## Functions
 
-1. `create_auto_pr(ticket_name, github_token=None)`: Main function to create an automatic pull request.
-2. `get_default_branch()`: Fetches the default branch name from the remote.
-3. `get_repo_info()`: Retrieves repository information.
-4. `get_commit_message(ticket_name)`: Gets the latest commit message for the specified branch.
-5. `create_pull_request(owner, repo, title, body, head, base, github_token)`: Creates the pull request using the GitHub API.
+## Troubleshooting
 
-## Limitations
+If you encounter any issues:
+1. Ensure your GitHub token has the necessary permissions
+2. Check that your local Git repository is properly configured with a remote
+3. Verify that you're in the correct directory when running the script
+4. Make sure your branch name matches the ticket name you're providing as an argument
 
-- The script assumes it's being run from within a Git repository.
-- It requires proper Git configuration (remote URL set up correctly).
-- The GitHub API token must have appropriate permissions to create pull requests in the repository.
-
-## Example Integration
-
-```python
-from auto_pr.main import create_auto_pr
-
-def my_pipeline():
-    try:
-        ticket_name = "FEATURE-789"
-        pr_url = create_auto_pr(ticket_name)
-        print(f"Pull request created successfully: {pr_url}")
-        # Further processing with pr_url
-    except ValueError as e:
-        print(f"Failed to create pull request: {str(e)}")
-        # Handle the error appropriately
-```
