@@ -2,6 +2,7 @@ import sys
 import os
 import subprocess
 import json
+import shutil
 from git_change_processor.main import process_git_changes
 from llm_handler.main import generate_commit_message
 from dotenv import load_dotenv
@@ -187,6 +188,30 @@ def switch_to_branch(branch_name):
     result = run_command(f"git checkout {branch_name}")
     return result.returncode == 0
 
+def cleanup_artifacts(repo_root):
+    """
+    Delete temporary artifacts generated during the integration process.
+    """
+    print_step("Cleanup", "Removing temporary artifacts")
+
+    # Delete TEMP folder
+    temp_folder = os.path.join(repo_root, "TEMP")
+    if os.path.exists(temp_folder):
+        try:
+            shutil.rmtree(temp_folder)
+            print_success(f"Successfully deleted TEMP folder: {temp_folder}")
+        except Exception as e:
+            print_error(f"Failed to delete TEMP folder: {str(e)}")
+
+    # Delete autoCommitArtifact.csv
+    csv_file = os.path.join(repo_root, "autoCommitArtifact.csv")
+    if os.path.exists(csv_file):
+        try:
+            os.remove(csv_file)
+            print_success(f"Successfully deleted file: {csv_file}")
+        except Exception as e:
+            print_error(f"Failed to delete file {csv_file}: {str(e)}")
+
 def main():
     """
     Main function to orchestrate the integration process.
@@ -281,6 +306,7 @@ def main():
         sys.exit(1)
 
     finally:
+        cleanup_artifacts(repo_root)
         # Return to the original branch
         print_step(9, f"Returning to original branch: {original_branch}")
         if switch_to_branch(original_branch):
