@@ -83,7 +83,7 @@ def create_pull_request(ticket_name):
     """
     print_step(7, "Creating pull request")
     auto_pr_script = os.path.join(os.path.dirname(__file__), 'auto_pr', 'main.py')
-    
+
     if not os.path.exists(auto_pr_script):
         print_error(f"Error: auto_pr script not found at {auto_pr_script}")
         return False
@@ -94,8 +94,8 @@ def create_pull_request(ticket_name):
         return False
 
     print_info(f"Running auto_pr script: {auto_pr_script}")
-    result = run_command(f"python {auto_pr_script} {ticket_name}")
-    
+    result = run_command(f"python3 {auto_pr_script} {ticket_name}")
+
     if result.returncode == 0:
         print_success("Pull request created successfully")
         print(result.stdout)
@@ -105,12 +105,12 @@ def create_pull_request(ticket_name):
         print(f"Return code: {result.returncode}")
         print(f"Error output: {result.stderr}")
         print(f"Standard output: {result.stdout}")
-        
+
         if "422" in result.stdout:
             print_warning("It seems the branch already exists on the remote. You may need to update the existing pull request or create a new one manually.")
         elif "404" in result.stdout:
             print_warning("The repository might not exist or you may not have the necessary permissions. Please check your GitHub access and repository settings.")
-        
+
         return False
 
 def rollback_changes(ticket_name, original_branch):
@@ -118,7 +118,7 @@ def rollback_changes(ticket_name, original_branch):
     Rollback all changes made during the integration process and restore them to the original branch.
     """
     print_step("Rollback", "Rolling back changes due to error")
-    
+
     # Check if the ticket branch exists
     branch_exists = run_command(f"git rev-parse --verify {ticket_name}")
     if branch_exists.returncode != 0:
@@ -171,7 +171,7 @@ def rollback_changes(ticket_name, original_branch):
         print_success(f"Successfully deleted the {ticket_name} branch")
     else:
         print_error(f"Failed to delete the {ticket_name} branch")
-    
+
     print_warning("All changes have been rolled back and restored to the original branch.")
 
 def get_current_branch():
@@ -217,7 +217,7 @@ def main():
     Main function to orchestrate the integration process.
     """
     print_step(1, "Initializing integrator script")
-    
+
     if len(sys.argv) < 2:
         print_error("Error: Incorrect number of arguments")
         print("Usage: python integrator.py <ticketName> [PR=true]")
@@ -256,7 +256,7 @@ def main():
         # Find the CSV file
         print_step(4, "Locating CSV file")
         csv_file_path = find_csv_file(repo_root)
-        
+
         if not csv_file_path:
             raise Exception("CSV file 'autoCommitArtifact.csv' not found in the repository root")
 
@@ -276,22 +276,22 @@ def main():
         print_success("Commit message generated successfully.")
         print("\nGenerated commit message:")
         print(f"{GREEN}{commit_message}{RESET}")
-        
+
         # Update the commit message
         print_step(6, "Updating commit message")
-        
+
         # Switch to the ticket branch
         switch_result = run_command(f"git checkout {ticket_name}")
         if switch_result.returncode != 0:
             raise Exception(f"Failed to switch to branch {ticket_name}")
-        
+
         # Amend the commit with the new message
         amend_result = run_command(f'git commit --amend -m "{commit_message}"')
         if amend_result.returncode != 0:
             raise Exception("Failed to update commit message")
-        
+
         print_success("Commit message updated successfully.")
-        
+
         # Create pull request if requested
         if create_pr:
             pr_created = create_pull_request(ticket_name)
