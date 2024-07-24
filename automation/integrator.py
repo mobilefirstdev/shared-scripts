@@ -6,6 +6,7 @@ import shutil
 from git_change_processor.main import process_git_changes
 from llm_handler.main import generate_commit_message
 from dotenv import load_dotenv
+import shlex
 
 # Load environment variables from .env file
 load_dotenv()
@@ -37,16 +38,21 @@ def print_warning(message):
     """Print a warning message in yellow."""
     print(f"{YELLOW}{message}{RESET}")
 
-def run_command(command):
+def run_command(command, shell=True):
     """
     Execute a shell command and return the result.
     If the command fails, print an error message.
     """
-    result = subprocess.run(command, capture_output=True, text=True, shell=True)
-    if result.returncode != 0:
+    try:
+        if isinstance(command, list):
+            result = subprocess.run(command, capture_output=True, text=True, check=True)
+        else:
+            result = subprocess.run(shlex.split(command), capture_output=True, text=True, check=True)
+        return result
+    except subprocess.CalledProcessError as e:
         print_error(f"Error executing command: {command}")
-        print_error(f"Error message: {result.stderr}")
-    return result
+        print_error(f"Error message: {e.stderr}")
+        return None
 
 def find_repo_root():
     """
@@ -94,7 +100,7 @@ def create_pull_request(ticket_name):
         return False
 
     print_info(f"Running auto_pr script: {auto_pr_script}")
-    result = run_command(f"python3 {auto_pr_script} {ticket_name}")
+    result = run_command(f"python {auto_pr_script} {ticket_name}")
 
     if result.returncode == 0:
         print_success("Pull request created successfully")
@@ -212,6 +218,25 @@ def cleanup_artifacts(repo_root):
         except Exception as e:
             print_error(f"Failed to delete file {csv_file}: {str(e)}")
 
+def update_commit_message(ticket_name, commit_message):
+    """
+    Update the commit message for the given ticket branch.
+    """
+    print_step(6, "Updating commit message")
+
+    # Switch to the ticket branch
+    switch_result = run_command(f"git checkout {ticket_name}")
+    if switch_result is None:
+        raise Exception(f"Failed to switch to branch {ticket_name}")
+
+    # Amend the commit with the new message
+    amend_command = ["git", "commit", "--amend", "-m", commit_message]
+    amend_result = run_command(amend_command, shell=False)
+    if amend_result is None:
+        raise Exception("Failed to update commit message")
+
+    print_success("Commit message updated successfully.")
+
 def main():
     """
     Main function to orchestrate the integration process.
@@ -278,19 +303,7 @@ def main():
         print(f"{GREEN}{commit_message}{RESET}")
 
         # Update the commit message
-        print_step(6, "Updating commit message")
-
-        # Switch to the ticket branch
-        switch_result = run_command(f"git checkout {ticket_name}")
-        if switch_result.returncode != 0:
-            raise Exception(f"Failed to switch to branch {ticket_name}")
-
-        # Amend the commit with the new message
-        amend_result = run_command(f'git commit --amend -m "{commit_message}"')
-        if amend_result.returncode != 0:
-            raise Exception("Failed to update commit message")
-
-        print_success("Commit message updated successfully.")
+        update_commit_message(ticket_name, commit_message)
 
         # Create pull request if requested
         if create_pr:
