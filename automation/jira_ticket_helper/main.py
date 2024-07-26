@@ -1,3 +1,5 @@
+# automation/jira_ticket_helper/main.py
+
 import os
 import requests
 from requests.auth import HTTPBasicAuth
@@ -30,6 +32,7 @@ def format_issue_details(issue_data):
         "key": issue_data['key'],
         "title": issue_data['fields']['summary'],
         "status": issue_data['fields']['status']['name'],
+        "type": issue_data['fields']['issuetype']['name'],  # Added issue type
         "description": formatted_description.strip() if formatted_description else "No description provided."
     }
 
