@@ -244,13 +244,14 @@ def remove_artifacts_from_commit(repo_root):
     print_step("Artifact Removal", "Removing temporary artifacts from the commit")
 
     artifacts = [
-        os.path.join(repo_root, "TEMP"),
-        os.path.join(repo_root, "autoCommitArtifact.csv")
+        ("TEMP", True),  # (path, is_directory)
+        ("autoCommitArtifact.csv", False)
     ]
 
-    for artifact in artifacts:
-        relative_path = os.path.relpath(artifact, repo_root)
-        remove_result = run_command(f"git rm -r --cached {relative_path}")
+    for artifact, is_directory in artifacts:
+        relative_path = os.path.join(".", artifact)
+        remove_command = f"git rm -r --cached {relative_path}" if is_directory else f"git rm --cached {relative_path}"
+        remove_result = run_command(remove_command)
         if remove_result and remove_result.returncode == 0:
             print_success(f"Successfully removed {relative_path} from the commit")
         else:
@@ -261,6 +262,7 @@ def remove_artifacts_from_commit(repo_root):
     if amend_result and amend_result.returncode == 0:
         print_success("Successfully amended the commit to remove artifacts")
     else:
+        print_error("Failed to amend the commit")
         print_error("Failed to amend the commit")
 
 def main():

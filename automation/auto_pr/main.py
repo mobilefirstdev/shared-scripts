@@ -4,7 +4,10 @@ import subprocess
 import requests
 import json
 from dotenv import load_dotenv
-from automation.jira_ticket_helper.main import get_jira_issue_info
+
+# Add the parent directory to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from jira_ticket_helper.main import get_jira_issue_info
 
 # Load environment variables from .env file
 load_dotenv()
