@@ -82,7 +82,7 @@ def parse_commit_message(json_message):
         print_error("Failed to parse commit message JSON")
         return None
 
-def create_pull_request(ticket_name):
+def create_pull_request(ticket_name, current_branch):
     """
     Create a pull request using the auto_pr script.
     Returns True if successful, False otherwise.
@@ -100,7 +100,7 @@ def create_pull_request(ticket_name):
         return False
 
     print_info(f"Running auto_pr script: {auto_pr_script}")
-    result = run_command(f"python3 {auto_pr_script} {ticket_name}")
+    result = run_command(f"python3 {auto_pr_script} {ticket_name} {current_branch}")
 
     if result.returncode == 0:
         print_success("Pull request created successfully")
@@ -237,6 +237,32 @@ def update_commit_message(ticket_name, commit_message):
 
     print_success("Commit message updated successfully.")
 
+def remove_artifacts_from_commit(repo_root):
+    """
+    Remove temporary artifacts from the current commit.
+    """
+    print_step("Artifact Removal", "Removing temporary artifacts from the commit")
+
+    artifacts = [
+        os.path.join(repo_root, "TEMP"),
+        os.path.join(repo_root, "autoCommitArtifact.csv")
+    ]
+
+    for artifact in artifacts:
+        relative_path = os.path.relpath(artifact, repo_root)
+        remove_result = run_command(f"git rm -r --cached {relative_path}")
+        if remove_result and remove_result.returncode == 0:
+            print_success(f"Successfully removed {relative_path} from the commit")
+        else:
+            print_warning(f"Failed to remove {relative_path} from the commit. It may not exist in the repository.")
+
+    # Amend the commit without changing the commit message
+    amend_result = run_command("git commit --amend --no-edit")
+    if amend_result and amend_result.returncode == 0:
+        print_success("Successfully amended the commit to remove artifacts")
+    else:
+        print_error("Failed to amend the commit")
+
 def main():
     """
     Main function to orchestrate the integration process.
@@ -305,9 +331,12 @@ def main():
         # Update the commit message
         update_commit_message(ticket_name, commit_message)
 
+        # Remove artifacts from the commit
+        remove_artifacts_from_commit(repo_root)
+
         # Create pull request if requested
         if create_pr:
-            pr_created = create_pull_request(ticket_name)
+            pr_created = create_pull_request(ticket_name, original_branch)
             if not pr_created:
                 raise Exception("Pull request creation failed")
 

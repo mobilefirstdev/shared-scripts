@@ -131,12 +131,13 @@ def get_pr_title(ticket_name):
     
     return f"{prefix}({ticket_name}): {issue_title}"
 
-def create_auto_pr(ticket_name, github_token=None):
+def create_auto_pr(ticket_name, target_branch=None, github_token=None):
     """
     Main function to create an automatic pull request.
     
     Args:
         ticket_name (str): The name of the ticket/branch for which to create a PR.
+        target_branch (str, optional): The branch to create the PR into. If not provided, uses the default branch.
         github_token (str, optional): GitHub API token. If not provided, it will be read from environment variables.
     
     Returns:
@@ -156,8 +157,10 @@ def create_auto_pr(ticket_name, github_token=None):
         # Push the branch to the remote repository
         push_branch(ticket_name)
 
-        # Get the default branch name
-        default_branch = get_default_branch()
+        # Get the target branch name
+        if target_branch is None:
+            target_branch = get_default_branch()
+        print_info(f"Target branch for PR: {target_branch}")
 
         # Get repository information
         owner, repo = get_repo_info()
@@ -171,7 +174,7 @@ def create_auto_pr(ticket_name, github_token=None):
         # Use full commit message as PR description
         pr_body = commit_message
 
-        pr_url = create_pull_request(owner, repo, pr_title, pr_body, ticket_name, default_branch, github_token)
+        pr_url = create_pull_request(owner, repo, pr_title, pr_body, ticket_name, target_branch, github_token)
 
         print_success("Auto PR process completed successfully.")
         return pr_url
@@ -182,13 +185,14 @@ def create_auto_pr(ticket_name, github_token=None):
 if __name__ == "__main__":
     import sys
     
-    if len(sys.argv) != 2:
-        print_error("Usage: python auto_pr_script.py <ticketName>")
+    if len(sys.argv) < 2 or len(sys.argv) > 3:
+        print_error("Usage: python auto_pr_script.py <ticketName> [targetBranch]")
         sys.exit(1)
     
     ticket_name = sys.argv[1]
+    target_branch = sys.argv[2] if len(sys.argv) == 3 else None
     try:
-        pr_url = create_auto_pr(ticket_name)
+        pr_url = create_auto_pr(ticket_name, target_branch)
         print(f"Pull request created: {pr_url}")
     except ValueError as e:
         print_error(str(e))
