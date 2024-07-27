@@ -1,3 +1,4 @@
+# integrator.py
 import sys
 import os
 import subprocess
@@ -52,7 +53,9 @@ def run_command(command, shell=True):
         return result
     except subprocess.CalledProcessError as e:
         print_error(f"Error executing command: {command}")
+        print_error(f"Return code: {e.returncode}")
         print_error(f"Error message: {e.stderr}")
+        print_error(f"Output: {e.stdout}")
         return None
 
 def find_repo_root():
