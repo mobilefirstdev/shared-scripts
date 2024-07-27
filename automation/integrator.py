@@ -43,30 +43,16 @@ def run_command(command, shell=True):
     Execute a shell command and return the result.
     If the command fails, print an error message.
     """
-    import subprocess
-    import shlex
-
-    def print_error(message):
-        print(f"ERROR: {message}")
-
-    print("command: ", command)
     try:
         if isinstance(command, list):
-            print("inside the if")
             result = subprocess.run(command, capture_output=True, text=True, check=True)
         else:
-            print("inside the else")
             result = subprocess.run(shlex.split(command), capture_output=True, text=True, check=True)
         return result
     except subprocess.CalledProcessError as e:
         print_error(f"Error executing command: {command}")
         print_error(f"Error message: {e.stderr}")
-        print_error(f"Return code: {e.returncode}")
         return None
-    except Exception as e:
-        print_error(f"Unexpected error: {str(e)}")
-        return None
-
 
 def find_repo_root():
     """
