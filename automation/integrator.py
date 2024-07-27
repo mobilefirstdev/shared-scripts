@@ -47,8 +47,10 @@ def run_command(command, shell=True):
     try:
         if isinstance(command, list):
             result = subprocess.run(command, capture_output=True, text=True, check=True)
+            print("if result: ", result)
         else:
             result = subprocess.run(shlex.split(command), capture_output=True, text=True, check=True)
+            print("else result: ", result)
         return result
     except subprocess.CalledProcessError as e:
         print_error(f"Error executing command: {command}")
