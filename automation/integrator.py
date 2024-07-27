@@ -38,6 +38,7 @@ def print_warning(message):
     """Print a warning message in yellow."""
     print(f"{YELLOW}{message}{RESET}")
 
+
 def run_command(command, shell=True):
     """
     Execute a shell command and return the result.
@@ -100,7 +101,7 @@ def create_pull_request(ticket_name):
         return False
 
     print_info(f"Running auto_pr script: {auto_pr_script}")
-    result = run_command(f"python3 {auto_pr_script} {ticket_name}")
+    result = run_command(f"python {auto_pr_script} {ticket_name}")
 
     if result.returncode == 0:
         print_success("Pull request created successfully")
