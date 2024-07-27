@@ -38,31 +38,21 @@ def print_warning(message):
     """Print a warning message in yellow."""
     print(f"{YELLOW}{message}{RESET}")
 
-# def run_command(command, shell=True):
-#     """
-#     Execute a shell command and return the result.
-#     If the command fails, print an error message.
-#     """
-#     try:
-#         if isinstance(command, list):
-#             result = subprocess.run(command, capture_output=True, text=True, check=True)
-#         else:
-#             result = subprocess.run(shlex.split(command), capture_output=True, text=True, check=True)
-#         return result
-#     except subprocess.CalledProcessError as e:
-#         print_error(f"Error executing command: {command}")
-#         print_error(f"Error message: {e.stderr}")
-#         return None
-
-def run_command(command):
-    """Run a shell command and return its output."""
-    print_info(f"Running command: {command}")
-    result = subprocess.run(command, capture_output=True, text=True, shell=True)
-    if result.returncode != 0:
+def run_command(command, shell=True):
+    """
+    Execute a shell command and return the result.
+    If the command fails, print an error message.
+    """
+    try:
+        if isinstance(command, list):
+            result = subprocess.run(command, capture_output=True, text=True, check=True)
+        else:
+            result = subprocess.run(shlex.split(command), capture_output=True, text=True, check=True)
+        return result
+    except subprocess.CalledProcessError as e:
         print_error(f"Error executing command: {command}")
-        print_error(f"Error message: {result.stderr}")
+        print_error(f"Error message: {e.stderr}")
         return None
-    return result.stdout.strip()
 
 def find_repo_root():
     """
