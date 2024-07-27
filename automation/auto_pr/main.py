@@ -134,7 +134,7 @@ def get_pr_title(ticket_name):
 def create_auto_pr(ticket_name, github_token=None):
     """
     Main function to create an automatic pull request.
-    
+     
     Args:
         ticket_name (str): The name of the ticket/branch for which to create a PR.
         github_token (str, optional): GitHub API token. If not provided, it will be read from environment variables.
