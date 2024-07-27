@@ -52,11 +52,11 @@ def run_command(command, shell=True):
     print("command: ", command)
     try:
         if isinstance(command, list):
+            print("inside the if")
             result = subprocess.run(command, capture_output=True, text=True, check=True)
-            print("if result: ", result)
         else:
+            print("inside the else")
             result = subprocess.run(shlex.split(command), capture_output=True, text=True, check=True)
-            print("else result: ", result)
         return result
     except subprocess.CalledProcessError as e:
         print_error(f"Error executing command: {command}")

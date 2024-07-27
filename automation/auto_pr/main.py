@@ -1,14 +1,8 @@
-# automation/auto_pr/main.py
 import os
 import subprocess
 import requests
 import json
 from dotenv import load_dotenv
-# import sys
-# # Add the parent directory of 'automation' to the Python path
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-# from automation.jira_ticket_helper.main import get_jira_issue_info
 
 # Load environment variables from .env file
 load_dotenv()
@@ -109,39 +103,10 @@ def push_branch(branch_name):
         raise ValueError(f"Failed to push branch {branch_name} to remote.")
     print_success(f"Branch {branch_name} pushed to remote successfully.")
 
-# def get_pr_title(ticket_name):
-#     """Generate PR title based on Jira ticket information."""
-#     print_info(f"Fetching Jira issue info for {ticket_name}...")
-#     issue_info = get_jira_issue_info(ticket_name)
-    
-#     if 'error' in issue_info:
-#         print_error(f"Error fetching Jira issue info: {issue_info['error']}")
-#         return f"fix({ticket_name}): Update related to {ticket_name}"
-    
-#     main_issue = issue_info.get('main_issue', {})
-#     issue_type = main_issue.get('type', '').lower()
-#     issue_title = main_issue.get('title', '')
-    
-#     if issue_type in ['story', 'story subtask']:
-#         prefix = 'feat'
-#     elif issue_type == 'bug':
-#         prefix = 'fix'
-#     elif issue_type == 'tech debt':
-#         prefix = 'debt'
-#     elif issue_type == 'subtask':
-#         prefix = 'feat' 
-#     else:
-#         prefix = 'fix'
-    
-#     return f"{prefix}({ticket_name}): {issue_title}"
-
-def get_pr_title(ticket_name):
-    return "test test test "
-
 def create_auto_pr(ticket_name, github_token=None):
     """
     Main function to create an automatic pull request.
-     
+    
     Args:
         ticket_name (str): The name of the ticket/branch for which to create a PR.
         github_token (str, optional): GitHub API token. If not provided, it will be read from environment variables.
@@ -172,11 +137,11 @@ def create_auto_pr(ticket_name, github_token=None):
         # Get the commit message
         commit_message = get_commit_message(ticket_name)
 
-        # Generate PR title based on Jira ticket info
-        pr_title = get_pr_title(ticket_name)
-
-        # Use full commit message as PR description
-        pr_body = commit_message
+        # # Create the pull request
+        first_line = commit_message.split('\n')[0]
+        pr_title = f"[{ticket_name}] {first_line}"  # Use first line of commit message as PR title
+        pr_body = commit_message  # Use full commit message as PR description
+        
 
         pr_url = create_pull_request(owner, repo, pr_title, pr_body, ticket_name, default_branch, github_token)
 
@@ -195,7 +160,6 @@ if __name__ == "__main__":
     
     ticket_name = sys.argv[1]
     try:
-        print("inside the main function for auto_pr")
         pr_url = create_auto_pr(ticket_name)
         print(f"Pull request created: {pr_url}")
     except ValueError as e:
