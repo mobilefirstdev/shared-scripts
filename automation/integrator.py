@@ -43,6 +43,7 @@ def run_command(command, shell=True):
     Execute a shell command and return the result.
     If the command fails, print an error message.
     """
+    print("command: ", command)
     try:
         if isinstance(command, list):
             result = subprocess.run(command, capture_output=True, text=True, check=True)
