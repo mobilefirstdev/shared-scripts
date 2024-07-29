@@ -1,3 +1,4 @@
+# integrator.py
 import sys
 import os
 import subprocess
@@ -38,6 +39,7 @@ def print_warning(message):
     """Print a warning message in yellow."""
     print(f"{YELLOW}{message}{RESET}")
 
+
 def run_command(command, shell=True):
     """
     Execute a shell command and return the result.
@@ -51,7 +53,9 @@ def run_command(command, shell=True):
         return result
     except subprocess.CalledProcessError as e:
         print_error(f"Error executing command: {command}")
+        print_error(f"Return code: {e.returncode}")
         print_error(f"Error message: {e.stderr}")
+        print_error(f"Output: {e.stdout}")
         return None
 
 def find_repo_root():
@@ -100,7 +104,7 @@ def create_pull_request(ticket_name):
         return False
 
     print_info(f"Running auto_pr script: {auto_pr_script}")
-    result = run_command(f"python3 {auto_pr_script} {ticket_name}")
+    result = run_command(f"python {auto_pr_script} {ticket_name}")
 
     if result.returncode == 0:
         print_success("Pull request created successfully")

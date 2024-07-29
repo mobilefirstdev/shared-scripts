@@ -4,6 +4,10 @@ import subprocess
 import requests
 import json
 from dotenv import load_dotenv
+import sys
+# Add the parent directory of 'automation' to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 from automation.jira_ticket_helper.main import get_jira_issue_info
 
 # Load environment variables from .env file
@@ -188,6 +192,7 @@ if __name__ == "__main__":
     
     ticket_name = sys.argv[1]
     try:
+        print("inside the main function for auto_pr")
         pr_url = create_auto_pr(ticket_name)
         print(f"Pull request created: {pr_url}")
     except ValueError as e:
