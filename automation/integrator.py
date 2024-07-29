@@ -1,3 +1,4 @@
+# integrator.py
 import sys
 import os
 import subprocess
@@ -38,6 +39,7 @@ def print_warning(message):
     """Print a warning message in yellow."""
     print(f"{YELLOW}{message}{RESET}")
 
+
 def run_command(command, shell=True):
     """
     Execute a shell command and return the result.
@@ -51,7 +53,9 @@ def run_command(command, shell=True):
         return result
     except subprocess.CalledProcessError as e:
         print_error(f"Error executing command: {command}")
+        print_error(f"Return code: {e.returncode}")
         print_error(f"Error message: {e.stderr}")
+        print_error(f"Output: {e.stdout}")
         return None
 
 def find_repo_root():
@@ -82,7 +86,7 @@ def parse_commit_message(json_message):
         print_error("Failed to parse commit message JSON")
         return None
 
-def create_pull_request(ticket_name, current_branch):
+def create_pull_request(ticket_name):
     """
     Create a pull request using the auto_pr script.
     Returns True if successful, False otherwise.
@@ -100,7 +104,7 @@ def create_pull_request(ticket_name, current_branch):
         return False
 
     print_info(f"Running auto_pr script: {auto_pr_script}")
-    result = run_command(f"python3 {auto_pr_script} {ticket_name} {current_branch}")
+    result = run_command(f"python {auto_pr_script} {ticket_name}")
 
     if result.returncode == 0:
         print_success("Pull request created successfully")
@@ -237,34 +241,6 @@ def update_commit_message(ticket_name, commit_message):
 
     print_success("Commit message updated successfully.")
 
-def remove_artifacts_from_commit(repo_root):
-    """
-    Remove temporary artifacts from the current commit.
-    """
-    print_step("Artifact Removal", "Removing temporary artifacts from the commit")
-
-    artifacts = [
-        ("TEMP", True),  # (path, is_directory)
-        ("autoCommitArtifact.csv", False)
-    ]
-
-    for artifact, is_directory in artifacts:
-        relative_path = os.path.join(".", artifact)
-        remove_command = f"git rm -r --cached {relative_path}" if is_directory else f"git rm --cached {relative_path}"
-        remove_result = run_command(remove_command)
-        if remove_result and remove_result.returncode == 0:
-            print_success(f"Successfully removed {relative_path} from the commit")
-        else:
-            print_warning(f"Failed to remove {relative_path} from the commit. It may not exist in the repository.")
-
-    # Amend the commit without changing the commit message
-    amend_result = run_command("git commit --amend --no-edit")
-    if amend_result and amend_result.returncode == 0:
-        print_success("Successfully amended the commit to remove artifacts")
-    else:
-        print_error("Failed to amend the commit")
-        print_error("Failed to amend the commit")
-
 def main():
     """
     Main function to orchestrate the integration process.
@@ -333,12 +309,9 @@ def main():
         # Update the commit message
         update_commit_message(ticket_name, commit_message)
 
-        # Remove artifacts from the commit
-        remove_artifacts_from_commit(repo_root)
-
         # Create pull request if requested
         if create_pr:
-            pr_created = create_pull_request(ticket_name, original_branch)
+            pr_created = create_pull_request(ticket_name)
             if not pr_created:
                 raise Exception("Pull request creation failed")
 
