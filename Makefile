@@ -206,3 +206,10 @@ aiCommit:
 .PHONY: $(TICKET) PR
 $(TICKET) PR:
 	@:
+
+
+.PHONY: updateAllSubmodules
+updateAllSubmodules:
+	@echo "Updating submodules in all local repositories..."
+	./scripts/updateSubmodules.sh
+	@echo "All submodules have been updated."
