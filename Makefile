@@ -211,5 +211,6 @@ $(TICKET) PR:
 .PHONY: updateAllSubmodules
 updateAllSubmodules:
 	@echo "Updating submodules in all local repositories..."
-	scripts/updateSubmodules.sh
+	chmod +x ./scripts/update_submodules.sh
+	./scripts/update_submodules.sh
 	@echo "All submodules have been updated."
