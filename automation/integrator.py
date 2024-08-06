@@ -39,7 +39,6 @@ def print_warning(message):
     """Print a warning message in yellow."""
     print(f"{YELLOW}{message}{RESET}")
 
-
 def run_command(command, shell=True):
     """
     Execute a shell command and return the result.
@@ -198,11 +197,11 @@ def switch_to_branch(branch_name):
     result = run_command(f"git checkout {branch_name}")
     return result.returncode == 0
 
-def cleanup_artifacts(repo_root):
+def cleanup_artifacts(repo_root, ticket_name):
     """
     Delete temporary artifacts generated during the integration process.
     """
-    print_step("Cleanup", "Removing temporary artifacts")
+    print_step("Cleanup", "Removing temporary artifacts and branch")
 
     # Delete TEMP folder
     temp_folder = os.path.join(repo_root, "TEMP")
@@ -221,6 +220,13 @@ def cleanup_artifacts(repo_root):
             print_success(f"Successfully deleted file: {csv_file}")
         except Exception as e:
             print_error(f"Failed to delete file {csv_file}: {str(e)}")
+
+    # Delete the git branch
+    delete_branch_result = run_command(f"git branch -D {ticket_name}")
+    if delete_branch_result and delete_branch_result.returncode == 0:
+        print_success(f"Successfully deleted branch: {ticket_name}")
+    else:
+        print_error(f"Failed to delete branch: {ticket_name}")
 
 def update_commit_message(ticket_name, commit_message):
     """
@@ -323,7 +329,7 @@ def main():
         sys.exit(1)
 
     finally:
-        cleanup_artifacts(repo_root)
+        cleanup_artifacts(repo_root, ticket_name)
         # Return to the original branch
         print_step(9, f"Returning to original branch: {original_branch}")
         if switch_to_branch(original_branch):
