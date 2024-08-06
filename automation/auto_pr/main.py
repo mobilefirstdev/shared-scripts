@@ -165,8 +165,11 @@ def create_new_branch(base_branch):
     match = re.match(r'^(.*?)(-\d+)?$', base_branch)
     if match:
         base_name = match.group(1)
-        current_number = int(match.group(2)[1:]) if match.group(2) else 1
-        new_number = current_number + 1
+        current_suffix = match.group(2)
+        if current_suffix:
+            new_number = int(current_suffix[1:]) + 1
+        else:
+            new_number = 2
         new_branch = f"{base_name}-{new_number}"
     else:
         new_branch = f"{base_branch}-2"
