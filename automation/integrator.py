@@ -197,7 +197,7 @@ def switch_to_branch(branch_name):
     result = run_command(f"git checkout {branch_name}")
     return result.returncode == 0
 
-def cleanup_artifacts(repo_root, ticket_name):
+def cleanup_artifacts(repo_root, ticket_name, original_branch):
     """
     Delete temporary artifacts generated during the integration process.
     """
@@ -221,12 +221,20 @@ def cleanup_artifacts(repo_root, ticket_name):
         except Exception as e:
             print_error(f"Failed to delete file {csv_file}: {str(e)}")
 
-    # Delete the git branch
-    delete_branch_result = run_command(f"git branch -D {ticket_name}")
-    if delete_branch_result and delete_branch_result.returncode == 0:
-        print_success(f"Successfully deleted branch: {ticket_name}")
+    # Switch back to the original branch before deleting the ticket branch
+    switch_result = run_command(f"git checkout {original_branch}")
+    if switch_result and switch_result.returncode == 0:
+        print_success(f"Switched back to original branch: {original_branch}")
+        
+        # Now delete the ticket branch
+        delete_branch_result = run_command(f"git branch -D {ticket_name}")
+        if delete_branch_result and delete_branch_result.returncode == 0:
+            print_success(f"Successfully deleted branch: {ticket_name}")
+        else:
+            print_error(f"Failed to delete branch: {ticket_name}")
     else:
-        print_error(f"Failed to delete branch: {ticket_name}")
+        print_error(f"Failed to switch to original branch: {original_branch}")
+        print_warning(f"Unable to delete ticket branch: {ticket_name}")
 
 def update_commit_message(ticket_name, commit_message):
     """
@@ -329,13 +337,17 @@ def main():
         sys.exit(1)
 
     finally:
-        cleanup_artifacts(repo_root, ticket_name)
-        # Return to the original branch
-        print_step(9, f"Returning to original branch: {original_branch}")
-        if switch_to_branch(original_branch):
-            print_success(f"Successfully returned to branch: {original_branch}")
-        else:
-            print_error(f"Failed to return to branch: {original_branch}")
+        # Perform cleanup
+        cleanup_artifacts(repo_root, ticket_name, original_branch)
+        
+        # Check if we're on the original branch, if not, switch to it
+        current_branch = get_current_branch()
+        if current_branch != original_branch:
+            print_step(9, f"Returning to original branch: {original_branch}")
+            if switch_to_branch(original_branch):
+                print_success(f"Successfully returned to branch: {original_branch}")
+            else:
+                print_error(f"Failed to return to branch: {original_branch}")
 
 if __name__ == "__main__":
     main()
