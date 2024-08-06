@@ -1,10 +1,10 @@
-# automation/auto_pr/main.py
 import os
 import subprocess
 import requests
 import json
 from dotenv import load_dotenv
 import sys
+import re
 # Add the parent directory of 'automation' to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -32,9 +32,12 @@ def print_warning(message):
 def print_error(message):
     print(f"{RED}{message}{RESET}")
 
+def print_verbose(message):
+    print(f"{BLUE}[VERBOSE] {message}{RESET}")
+
 def run_command(command):
     """Run a shell command and return its output."""
-    print_info(f"Running command: {command}")
+    print_verbose(f"Running command: {command}")
     result = subprocess.run(command, capture_output=True, text=True, shell=True)
     if result.returncode != 0:
         print_error(f"Error executing command: {command}")
@@ -103,7 +106,7 @@ def create_pull_request(owner, repo, title, body, head, base, github_token):
 
 def push_branch(branch_name):
     """Push the branch to the remote repository."""
-    print_info(f"Pushing branch {branch_name} to remote...")
+    print_verbose(f"Pushing branch {branch_name} to remote...")
     result = run_command(f"git push -u origin {branch_name}")
     if result is None:
         raise ValueError(f"Failed to push branch {branch_name} to remote.")
@@ -135,10 +138,47 @@ def get_pr_title(ticket_name):
     
     return f"{prefix}({ticket_name}): {issue_title}"
 
+def check_existing_pr(owner, repo, branch, github_token):
+    """Check if a pull request already exists for the given branch."""
+    print_verbose(f"Checking for existing PR for branch: {branch}")
+    url = f"https://api.github.com/repos/{owner}/{repo}/pulls"
+    headers = {
+        "Authorization": f"token {github_token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    params = {
+        "head": f"{owner}:{branch}",
+        "state": "open"
+    }
+    response = requests.get(url, headers=headers, params=params)
+    if response.status_code == 200:
+        prs = response.json()
+        if prs:
+            print_verbose(f"Found existing PR for branch {branch}")
+            return True
+    print_verbose(f"No existing PR found for branch {branch}")
+    return False
+
+def create_new_branch(base_branch):
+    """Create a new branch with an incremented suffix."""
+    print_verbose(f"Creating new branch based on: {base_branch}")
+    match = re.match(r'^(.*?)(-\d+)?$', base_branch)
+    if match:
+        base_name = match.group(1)
+        current_number = int(match.group(2)[1:]) if match.group(2) else 1
+        new_number = current_number + 1
+        new_branch = f"{base_name}-{new_number}"
+    else:
+        new_branch = f"{base_branch}-2"
+    
+    print_verbose(f"New branch name: {new_branch}")
+    run_command(f"git checkout -b {new_branch} {base_branch}")
+    return new_branch
+
 def create_auto_pr(ticket_name, github_token=None):
     """
     Main function to create an automatic pull request.
-     
+    
     Args:
         ticket_name (str): The name of the ticket/branch for which to create a PR.
         github_token (str, optional): GitHub API token. If not provided, it will be read from environment variables.
@@ -157,25 +197,21 @@ def create_auto_pr(ticket_name, github_token=None):
             raise ValueError("GitHub token not found. Please provide it as an argument or set the GITHUB_TOKEN environment variable.")
 
     try:
-        # Push the branch to the remote repository
-        push_branch(ticket_name)
-
-        # Get the default branch name
+        owner, repo = get_repo_info()
         default_branch = get_default_branch()
 
-        # Get repository information
-        owner, repo = get_repo_info()
+        current_branch = ticket_name
+        while check_existing_pr(owner, repo, current_branch, github_token):
+            print_warning(f"PR already exists for branch {current_branch}. Creating a new branch...")
+            current_branch = create_new_branch(current_branch)
 
-        # Get the commit message
-        commit_message = get_commit_message(ticket_name)
+        push_branch(current_branch)
 
-        # Generate PR title based on Jira ticket info
+        commit_message = get_commit_message(current_branch)
         pr_title = get_pr_title(ticket_name)
-
-        # Use full commit message as PR description
         pr_body = commit_message
 
-        pr_url = create_pull_request(owner, repo, pr_title, pr_body, ticket_name, default_branch, github_token)
+        pr_url = create_pull_request(owner, repo, pr_title, pr_body, current_branch, default_branch, github_token)
 
         print_success("Auto PR process completed successfully.")
         return pr_url
@@ -184,15 +220,13 @@ def create_auto_pr(ticket_name, github_token=None):
         raise
 
 if __name__ == "__main__":
-    import sys
-    
     if len(sys.argv) != 2:
         print_error("Usage: python auto_pr_script.py <ticketName>")
         sys.exit(1)
     
     ticket_name = sys.argv[1]
     try:
-        print("inside the main function for auto_pr")
+        print("Starting the auto PR process...")
         pr_url = create_auto_pr(ticket_name)
         print(f"Pull request created: {pr_url}")
     except ValueError as e:
