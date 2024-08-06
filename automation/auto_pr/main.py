@@ -162,13 +162,17 @@ def check_existing_pr(owner, repo, branch, github_token):
 def create_new_branch(base_branch):
     """Create a new branch with an incremented suffix."""
     print_verbose(f"Creating new branch based on: {base_branch}")
-    parts = base_branch.split('-')
-    if len(parts) > 1 and parts[-1].isdigit():
-        # If the last part is a number, increment it
-        new_number = int(parts[-1]) + 1
-        new_branch = f"{'-'.join(parts[:-1])}-{new_number}"
+    
+    # Split the branch name by '-', but only split twice
+    parts = base_branch.split('-', 2)
+    print("parts: ", parts)
+    
+    if len(parts) == 3 and parts[2].isdigit():
+        # If there's already a number after the second '-', increment it
+        new_number = int(parts[2]) + 1
+        new_branch = f"{parts[0]}-{parts[1]}-{new_number}"
     else:
-        # If there's no number suffix, add -2
+        # If there's no number after the second '-', add '-2'
         new_branch = f"{base_branch}-2"
     
     print_verbose(f"New branch name: {new_branch}")
