@@ -197,6 +197,19 @@ def switch_to_branch(branch_name):
     result = run_command(f"git checkout {branch_name}")
     return result.returncode == 0
 
+def get_actual_branch_name(ticket_name):
+    """
+    Get the actual branch name that starts with the given ticket name.
+    This handles cases where the branch might be named differently due to conflicts.
+    """
+    result = run_command(f"git branch --list '{ticket_name}*'")
+    if result and result.returncode == 0:
+        branches = result.stdout.strip().split('\n')
+        if branches:
+            # Return the first branch name that matches, removing the leading '* ' if present
+            return branches[0].strip('* ')
+    return None
+
 def cleanup_artifacts(repo_root, ticket_name, original_branch):
     """
     Delete temporary artifacts generated during the integration process.
@@ -226,15 +239,20 @@ def cleanup_artifacts(repo_root, ticket_name, original_branch):
     if switch_result and switch_result.returncode == 0:
         print_success(f"Switched back to original branch: {original_branch}")
         
-        # Now delete the ticket branch
-        delete_branch_result = run_command(f"git branch -D {ticket_name}")
-        if delete_branch_result and delete_branch_result.returncode == 0:
-            print_success(f"Successfully deleted branch: {ticket_name}")
+        # Find the actual branch name
+        actual_branch_name = get_actual_branch_name(ticket_name)
+        if actual_branch_name:
+            # Now delete the actual ticket branch
+            delete_branch_result = run_command(f"git branch -D {actual_branch_name}")
+            if delete_branch_result and delete_branch_result.returncode == 0:
+                print_success(f"Successfully deleted branch: {actual_branch_name}")
+            else:
+                print_error(f"Failed to delete branch: {actual_branch_name}")
         else:
-            print_error(f"Failed to delete branch: {ticket_name}")
+            print_error(f"Could not find a branch starting with: {ticket_name}")
     else:
         print_error(f"Failed to switch to original branch: {original_branch}")
-        print_warning(f"Unable to delete ticket branch: {ticket_name}")
+        print_warning(f"Unable to delete ticket branch")
 
 def update_commit_message(ticket_name, commit_message):
     """
