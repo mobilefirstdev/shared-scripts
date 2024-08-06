@@ -209,7 +209,9 @@ def create_auto_pr(ticket_name, github_token=None):
 
         commit_message = get_commit_message(current_branch)
         pr_title = get_pr_title(ticket_name)
-        pr_body = commit_message
+        
+        # Prepend the PR title to the commit message
+        pr_body = f"{pr_title}\n\n{commit_message}"
 
         pr_url = create_pull_request(owner, repo, pr_title, pr_body, current_branch, default_branch, github_token)
 
