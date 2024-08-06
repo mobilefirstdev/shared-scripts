@@ -197,24 +197,23 @@ def switch_to_branch(branch_name):
     result = run_command(f"git checkout {branch_name}")
     return result.returncode == 0
 
-def get_actual_branch_name(ticket_name):
+def get_matching_branch_names(ticket_name):
     """
-    Get the actual branch name that starts with the given ticket name.
-    This handles cases where the branch might be named differently due to conflicts.
+    Get all branch names that start with the given ticket name.
+    This handles cases where multiple branches might exist for a single ticket.
     """
     result = run_command(f"git branch --list '{ticket_name}*'")
     if result and result.returncode == 0:
         branches = result.stdout.strip().split('\n')
-        if branches:
-            # Return the first branch name that matches, removing the leading '* ' if present
-            return branches[0].strip('* ')
-    return None
+        # Return all branch names that match, removing the leading '* ' if present
+        return [branch.strip('* ') for branch in branches if branch.strip()]
+    return []
 
 def cleanup_artifacts(repo_root, ticket_name, original_branch):
     """
     Delete temporary artifacts generated during the integration process.
     """
-    print_step("Cleanup", "Removing temporary artifacts and branch")
+    print_step("Cleanup", "Removing temporary artifacts and branches")
 
     # Delete TEMP folder
     temp_folder = os.path.join(repo_root, "TEMP")
@@ -234,25 +233,26 @@ def cleanup_artifacts(repo_root, ticket_name, original_branch):
         except Exception as e:
             print_error(f"Failed to delete file {csv_file}: {str(e)}")
 
-    # Switch back to the original branch before deleting the ticket branch
+    # Switch back to the original branch before deleting the ticket branches
     switch_result = run_command(f"git checkout {original_branch}")
     if switch_result and switch_result.returncode == 0:
         print_success(f"Switched back to original branch: {original_branch}")
         
-        # Find the actual branch name
-        actual_branch_name = get_actual_branch_name(ticket_name)
-        if actual_branch_name:
-            # Now delete the actual ticket branch
-            delete_branch_result = run_command(f"git branch -D {actual_branch_name}")
-            if delete_branch_result and delete_branch_result.returncode == 0:
-                print_success(f"Successfully deleted branch: {actual_branch_name}")
-            else:
-                print_error(f"Failed to delete branch: {actual_branch_name}")
+        # Find all matching branch names
+        matching_branches = get_matching_branch_names(ticket_name)
+        if matching_branches:
+            for branch in matching_branches:
+                # Delete each matching branch
+                delete_branch_result = run_command(f"git branch -D {branch}")
+                if delete_branch_result and delete_branch_result.returncode == 0:
+                    print_success(f"Successfully deleted branch: {branch}")
+                else:
+                    print_error(f"Failed to delete branch: {branch}")
         else:
-            print_error(f"Could not find a branch starting with: {ticket_name}")
+            print_error(f"Could not find any branches starting with: {ticket_name}")
     else:
         print_error(f"Failed to switch to original branch: {original_branch}")
-        print_warning(f"Unable to delete ticket branch")
+        print_warning(f"Unable to delete ticket branches")
 
 def update_commit_message(ticket_name, commit_message):
     """
