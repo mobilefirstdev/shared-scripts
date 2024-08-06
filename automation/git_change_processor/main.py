@@ -20,6 +20,7 @@ def print_warning(message):
     print(f"{YELLOW}{message}{RESET}")
 
 def run_command(command):
+    print(f"Executing command: {command}")
     result = subprocess.run(command, capture_output=True, text=True, shell=True)
     if result.returncode != 0:
         print_error(f"Error executing command: {command}")
@@ -27,7 +28,23 @@ def run_command(command):
         return None
     return result
 
+def branch_exists(branch_name):
+    result = run_command(f"git branch --list {branch_name}")
+    return result is not None and branch_name in result.stdout
+
+def generate_branch_name(base_name):
+    if not branch_exists(base_name):
+        return base_name
+    
+    count = 2
+    while True:
+        new_name = f"{base_name}-{count}"
+        if not branch_exists(new_name):
+            return new_name
+        count += 1
+
 def get_changed_files():
+    print("Checking for changed files...")
     staged = run_command("git diff --cached --name-status")
     unstaged = run_command("git diff --name-status")
     untracked = run_command("git ls-files --others --exclude-standard")
@@ -126,13 +143,14 @@ def process_git_changes(ticket_name):
         return False
     print_success("All changes have been staged.")
 
-    print(f"\nCreating new branch '{ticket_name}' from '{current_branch}'...")
-    if not run_command(f"git checkout -b {ticket_name}"):
+    new_branch_name = generate_branch_name(ticket_name)
+    print(f"\nCreating new branch '{new_branch_name}' from '{current_branch}'...")
+    if not run_command(f"git checkout -b {new_branch_name}"):
         return False
-    print_success(f"Successfully created and checked out branch '{ticket_name}'.")
+    print_success(f"Successfully created and checked out branch '{new_branch_name}'.")
 
     print("\nCommitting changes in the new branch...")
-    if not run_command(f"git commit -m 'Initial commit for {ticket_name}'"):
+    if not run_command(f"git commit -m 'Initial commit for {new_branch_name}'"):
         return False
     print_success("Changes committed successfully.")
 
@@ -153,7 +171,7 @@ def process_git_changes(ticket_name):
         return False
 
     print_success(f"\nScript completed. You are now on branch '{current_branch}'.")
-    print_success(f"A new branch '{ticket_name}' has been created with all changes.")
+    print_success(f"A new branch '{new_branch_name}' has been created with all changes.")
     print_success(f"The {csv_filename} has been created in the '{current_branch}' branch but is not committed.")
 
     return True
