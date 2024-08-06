@@ -70,10 +70,10 @@ def get_repo_info():
     print_success(f"Repository: {owner}/{repo}")
     return owner, repo
 
-def get_commit_message(ticket_name):
+def get_commit_message(branch_name):
     """Get the commit message from the latest commit."""
-    print_info(f"Fetching commit message for branch {ticket_name}...")
-    result = run_command(f"git log -1 --pretty=%B {ticket_name}")
+    print_info(f"Fetching commit message for branch {branch_name}...")
+    result = run_command(f"git log -1 --pretty=%B {branch_name}")
     if result is None:
         raise ValueError("Failed to fetch commit message.")
     print_success("Commit message fetched successfully.")
@@ -162,16 +162,13 @@ def check_existing_pr(owner, repo, branch, github_token):
 def create_new_branch(base_branch):
     """Create a new branch with an incremented suffix."""
     print_verbose(f"Creating new branch based on: {base_branch}")
-    match = re.match(r'^(.*?)(-\d+)?$', base_branch)
-    if match:
-        base_name = match.group(1)
-        current_suffix = match.group(2)
-        if current_suffix:
-            new_number = int(current_suffix[1:]) + 1
-        else:
-            new_number = 2
-        new_branch = f"{base_name}-{new_number}"
+    parts = base_branch.split('-')
+    if len(parts) > 1 and parts[-1].isdigit():
+        # If the last part is a number, increment it
+        new_number = int(parts[-1]) + 1
+        new_branch = f"{'-'.join(parts[:-1])}-{new_number}"
     else:
+        # If there's no number suffix, add -2
         new_branch = f"{base_branch}-2"
     
     print_verbose(f"New branch name: {new_branch}")
@@ -204,14 +201,18 @@ def create_auto_pr(ticket_name, github_token=None):
         default_branch = get_default_branch()
 
         current_branch = ticket_name
-        while check_existing_pr(owner, repo, current_branch, github_token):
+        original_ticket = ticket_name
+        pr_exists = check_existing_pr(owner, repo, current_branch, github_token)
+        
+        while pr_exists:
             print_warning(f"PR already exists for branch {current_branch}. Creating a new branch...")
             current_branch = create_new_branch(current_branch)
+            pr_exists = check_existing_pr(owner, repo, current_branch, github_token)
 
         push_branch(current_branch)
 
         commit_message = get_commit_message(current_branch)
-        pr_title = get_pr_title(ticket_name)
+        pr_title = get_pr_title(original_ticket)
         
         # Prepend the PR title to the commit message
         pr_body = f"{pr_title}\n\n{commit_message}"
