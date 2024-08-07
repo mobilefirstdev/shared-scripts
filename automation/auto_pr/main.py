@@ -179,12 +179,13 @@ def create_new_branch(base_branch):
     run_command(f"git checkout -b {new_branch} {base_branch}")
     return new_branch
 
-def create_auto_pr(ticket_name, github_token=None):
+def create_auto_pr(ticket_name, base_branch, github_token=None):
     """
     Main function to create an automatic pull request.
     
     Args:
         ticket_name (str): The name of the ticket/branch for which to create a PR.
+        base_branch (str): The base branch for the pull request.
         github_token (str, optional): GitHub API token. If not provided, it will be read from environment variables.
     
     Returns:
@@ -202,7 +203,6 @@ def create_auto_pr(ticket_name, github_token=None):
 
     try:
         owner, repo = get_repo_info()
-        default_branch = get_default_branch()
 
         current_branch = ticket_name
         original_ticket = ticket_name
@@ -221,7 +221,7 @@ def create_auto_pr(ticket_name, github_token=None):
         # Prepend the PR title to the commit message
         pr_body = f"{pr_title}\n\n{commit_message}"
 
-        pr_url = create_pull_request(owner, repo, pr_title, pr_body, current_branch, default_branch, github_token)
+        pr_url = create_pull_request(owner, repo, pr_title, pr_body, current_branch, base_branch, github_token)
 
         print_success("Auto PR process completed successfully.")
         return pr_url
@@ -230,14 +230,15 @@ def create_auto_pr(ticket_name, github_token=None):
         raise
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print_error("Usage: python auto_pr_script.py <ticketName>")
+    if len(sys.argv) != 3:
+        print_error("Usage: python auto_pr_script.py <ticketName> <baseBranch>")
         sys.exit(1)
     
     ticket_name = sys.argv[1]
+    base_branch = sys.argv[2]
     try:
         print("Starting the auto PR process...")
-        pr_url = create_auto_pr(ticket_name)
+        pr_url = create_auto_pr(ticket_name, base_branch)
         print(f"Pull request created: {pr_url}")
     except ValueError as e:
         print_error(str(e))

@@ -85,7 +85,7 @@ def parse_commit_message(json_message):
         print_error("Failed to parse commit message JSON")
         return None
 
-def create_pull_request(ticket_name):
+def create_pull_request(ticket_name, base_branch):
     """
     Create a pull request using the auto_pr script.
     Returns True if successful, False otherwise.
@@ -103,7 +103,7 @@ def create_pull_request(ticket_name):
         return False
 
     print_info(f"Running auto_pr script: {auto_pr_script}")
-    result = run_command(f"python3 {auto_pr_script} {ticket_name}")
+    result = run_command(f"python3 {auto_pr_script} {ticket_name} {base_branch}")
 
     if result.returncode == 0:
         print_success("Pull request created successfully")
@@ -343,7 +343,7 @@ def main():
 
         # Create pull request if requested
         if create_pr:
-            pr_created = create_pull_request(ticket_name)
+            pr_created = create_pull_request(ticket_name, original_branch)
             if not pr_created:
                 raise Exception("Pull request creation failed")
 
