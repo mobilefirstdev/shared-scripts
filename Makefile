@@ -208,9 +208,10 @@ $(TICKET) PR:
 	@:
 
 
+# updateAllSubmodules is always called from a repo that inherits shared-scripts as a submodule
 .PHONY: updateAllSubmodules
 updateAllSubmodules:
 	@echo "Updating submodules in all local repositories..."
-	chmod +x ./scripts/update_submodules.sh
-	./scripts/update_submodules.sh
+	chmod +x shared-scripts/scripts/update_submodules.sh
+	./shared-scripts/scripts/update_submodules.sh
 	@echo "All submodules have been updated."
