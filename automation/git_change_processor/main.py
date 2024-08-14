@@ -127,7 +127,7 @@ def process_git_changes(ticket_name):
     print_success("All changes have been staged.")
 
     print(f"\nChecking if branch '{ticket_name}' already exists...")
-    branch_exists = run_command(f"git rev-parse --verify {ticket_name}")
+    branch_exists = run_command(f"git show-ref --verify --quiet refs/heads/{ticket_name}")
     
     if branch_exists and branch_exists.returncode == 0:
         print_success(f"Branch '{ticket_name}' already exists. Checking it out...")
