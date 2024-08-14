@@ -126,13 +126,22 @@ def process_git_changes(ticket_name):
         return False
     print_success("All changes have been staged.")
 
-    print(f"\nCreating new branch '{ticket_name}' from '{current_branch}'...")
-    if not run_command(f"git checkout -b {ticket_name}"):
-        return False
-    print_success(f"Successfully created and checked out branch '{ticket_name}'.")
+    print(f"\nChecking if branch '{ticket_name}' already exists...")
+    branch_exists = run_command(f"git rev-parse --verify {ticket_name}")
+    
+    if branch_exists and branch_exists.returncode == 0:
+        print_success(f"Branch '{ticket_name}' already exists. Checking it out...")
+        if not run_command(f"git checkout {ticket_name}"):
+            return False
+        print_success(f"Successfully checked out existing branch '{ticket_name}'.")
+    else:
+        print(f"Creating new branch '{ticket_name}' from '{current_branch}'...")
+        if not run_command(f"git checkout -b {ticket_name}"):
+            return False
+        print_success(f"Successfully created and checked out branch '{ticket_name}'.")
 
-    print("\nCommitting changes in the new branch...")
-    if not run_command(f"git commit -m 'Initial commit for {ticket_name}'"):
+    print("\nCommitting changes in the branch...")
+    if not run_command(f"git commit -m 'Commit for {ticket_name}'"):
         return False
     print_success("Changes committed successfully.")
 
