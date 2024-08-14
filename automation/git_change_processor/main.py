@@ -145,6 +145,22 @@ def process_git_changes(ticket_name):
         return False
     print_success("Changes committed successfully.")
 
+    print(f"\nPushing branch '{ticket_name}' to origin...")
+    push_result = run_command(f"git push origin {ticket_name}")
+    if not push_result:
+        return False
+    
+    if "fatal: The current branch" in push_result.stderr and "has no upstream branch" in push_result.stderr:
+        print_warning("No upstream branch set. Setting upstream and pushing...")
+        if not run_command(f"git push --set-upstream origin {ticket_name}"):
+            return False
+        print_success(f"Branch '{ticket_name}' pushed to origin and upstream set.")
+    elif push_result.returncode != 0:
+        print_error(f"Error pushing to origin: {push_result.stderr}")
+        return False
+    else:
+        print_success(f"Branch '{ticket_name}' pushed to origin successfully.")
+
     csv_filename = "autoCommitArtifact.csv"
     csv_path = os.path.join(git_root, csv_filename)
     print(f"\nCreating {csv_filename}...")
