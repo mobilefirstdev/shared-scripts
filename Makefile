@@ -207,6 +207,21 @@ aiCommit:
 $(TICKET) PR:
 	@:
 
+.PHONY: aiPr
+
+# Target for AI-assisted PR creation
+aiPr:
+	@if [ -z "$(BRANCH)" ]; then \
+		echo "Usage: make aiPr BRANCH=<target_branch>"; \
+		exit 1; \
+	fi
+	@echo "Running AI-assisted PR creation to open a PR into target branch: $(BRANCH)"
+	@$(PYTHON) shared-scripts/automation/branch_integrator.py $(BRANCH)
+
+# Ignore undefined variables
+.PHONY: $(BRANCH)
+$(BRANCH):
+	@:
 
 # updateAllSubmodules is always called from a repo that inherits shared-scripts as a submodule
 .PHONY: updateAllSubmodules
