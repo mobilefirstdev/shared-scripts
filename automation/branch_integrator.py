@@ -34,6 +34,11 @@ def run_command(command):
     """Run a shell command and return its output."""
     print_info(f"Executing command: {command}")
     result = subprocess.run(command, capture_output=True, text=True, shell=True)
+    print_info("Command output:")
+    print(result.stdout)
+    if result.stderr:
+        print_warning("Command stderr:")
+        print(result.stderr)
     if result.returncode != 0:
         print_error(f"Error executing command: {command}")
         print_error(f"Error message: {result.stderr}")
