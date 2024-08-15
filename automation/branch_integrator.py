@@ -50,29 +50,12 @@ def get_current_branch():
     """Get the name of the current Git branch."""
     return run_command("git rev-parse --abbrev-ref HEAD")
 
-def get_parent_branch(current_branch):
-    """Get the parent branch of the current branch."""
-    parent = run_command(f"git config --get branch.{current_branch}.merge")
-    if parent:
-        return parent.replace("refs/heads/", "")
-    return None
-
-def print_parent_branch(current_branch):
-    """Print the parent branch of the current branch."""
-    parent = get_parent_branch(current_branch)
-    if parent:
-        print_info(f"Parent branch of {current_branch}: {parent}")
-    else:
-        print_warning(f"No parent branch found for {current_branch}")
-
 def run_git_branch_processor():
     """Run the git_branch_processor/main.py script and extract the merge base hash."""
     print_step(1, "Running git_branch_processor/main.py")
     output = run_command("python3 shared-scripts/automation/git_branch_processor/main.py")
     if output is None:
         raise Exception("Failed to run git_branch_processor/main.py")
-    
-    print_parent_branch(get_current_branch())
     
     print_info("Extracting merge base hash from output")
     match = re.search(r"Merge base found: ([a-f0-9]+)", output)
@@ -91,8 +74,6 @@ def run_branch_llm_handler(merge_base):
     if output is None:
         raise Exception("Failed to run branch_llm_handler/main.py")
     
-    print_parent_branch(get_current_branch())
-    
     print_info("Extracting commit message from output")
     match = re.search(r'"response": "(.*)"', output)
     if match:
@@ -110,8 +91,6 @@ def run_auto_pr(ticket_number, base_branch, commit_message):
     output = run_command(command)
     if output is None:
         raise Exception("Failed to run auto_pr/main.py")
-    
-    print_parent_branch(get_current_branch())
     
     print_info("Extracting pull request URL from output")
     match = re.search(r"Pull request created: (https://.*)", output)
