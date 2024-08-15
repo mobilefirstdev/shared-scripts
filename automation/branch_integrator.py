@@ -103,7 +103,8 @@ def run_branch_llm_handler(merge_base):
 def run_auto_pr(ticket_number, base_branch, commit_message):
     """Run the auto_pr/main.py script with the given parameters."""
     print_step(3, f"Running auto_pr/main.py")
-    command = f"python shared-scripts/automation/auto_pr/main.py {ticket_number} {base_branch} \"{commit_message}\""
+    escaped_commit_message = json.dumps(commit_message)  # This escapes special characters
+    command = f"python shared-scripts/automation/auto_pr/main.py {ticket_number} {base_branch} {escaped_commit_message}"
     output = run_command(command)
     if output is None:
         raise Exception("Failed to run auto_pr/main.py")
