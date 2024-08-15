@@ -79,6 +79,8 @@ def get_commit_message(file_content, is_new_file, file_name):
     
     if is_new_file:
         system_prompt = f"You must generate a succinct commit message from the text you are provided. The commit message should include the file name '{file_name}' and describe what this new file does."
+    elif "===== ORIGINAL CONTENT =====" not in file_content:
+        system_prompt = f"You must generate a succinct commit message for the deleted file '{file_name}'. The commit message should mention that the file has been deleted and briefly describe its purpose if possible."
     else:
         system_prompt = f"You will be provided with text that contains the original and modified content of a file. Based on this, you must create a commit message. The commit message should include the file name '{file_name}' and describe the changes made to this file."
 
@@ -153,7 +155,7 @@ def process_file(file_path, commit_hash, temp_folder, index):
             output_file = os.path.join(temp_folder, f'{file_prefix}_{index}.txt')
             merged_file = create_merged_file(original_content, new_content, output_file)
             
-            if merged_file and file_prefix in ['new', 'modified']:
+            if merged_file:
                 with open(merged_file, 'r', encoding='utf-8') as f:
                     merged_content = f.read()
                 
