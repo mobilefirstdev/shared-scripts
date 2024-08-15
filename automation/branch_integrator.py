@@ -2,6 +2,7 @@ import sys
 import subprocess
 import os
 import re
+import json
 
 # ANSI color codes for colorful output
 GREEN = '\033[0;32m'
@@ -74,15 +75,30 @@ def run_branch_llm_handler(merge_base):
     if output is None:
         raise Exception("Failed to run branch_llm_handler/main.py")
     
-    print_info("Extracting commit message from output")
-    match = re.search(r'"response": "(.*)"', output)
-    if match:
-        commit_message = match.group(1)
-        print_success(f"Commit message generated: {commit_message}")
-        return commit_message
-    else:
-        print_error("Failed to extract commit message from output")
-        raise Exception("Commit message not found in output")
+    print_info("Reading commit message from TEMP/final_commit_message.txt")
+    try:
+        with open('TEMP/final_commit_message.txt', 'r') as file:
+            content = file.read().strip()
+        
+        # Parse the JSON content
+        message_obj = json.loads(content)
+        commit_message = message_obj.get("response", "").strip()
+        
+        if commit_message:
+            print_success(f"Commit message extracted successfully")
+            return commit_message
+        else:
+            print_error("Failed to extract commit message from the file")
+            raise Exception("Commit message not found in the file")
+    except FileNotFoundError:
+        print_error("Failed to find TEMP/final_commit_message.txt")
+        raise Exception("Commit message file not found")
+    except json.JSONDecodeError:
+        print_error("Failed to parse JSON content in TEMP/final_commit_message.txt")
+        raise Exception("Invalid JSON format in commit message file")
+    except IOError:
+        print_error("Failed to read TEMP/final_commit_message.txt")
+        raise Exception("Error reading commit message file")
 
 def run_auto_pr(ticket_number, base_branch, commit_message):
     """Run the auto_pr/main.py script with the given parameters."""
