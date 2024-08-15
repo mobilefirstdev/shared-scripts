@@ -179,13 +179,14 @@ def create_new_branch(base_branch):
     run_command(f"git checkout -b {new_branch} {base_branch}")
     return new_branch
 
-def create_auto_pr(ticket_name, base_branch, github_token=None):
+def create_auto_pr(ticket_name, base_branch, custom_commit_message=None, github_token=None):
     """
     Main function to create an automatic pull request.
     
     Args:
         ticket_name (str): The name of the ticket/branch for which to create a PR.
         base_branch (str): The base branch for the pull request.
+        custom_commit_message (str, optional): Custom commit message for the PR.
         github_token (str, optional): GitHub API token. If not provided, it will be read from environment variables.
     
     Returns:
@@ -215,7 +216,10 @@ def create_auto_pr(ticket_name, base_branch, github_token=None):
 
         push_branch(current_branch)
 
-        commit_message = get_commit_message(current_branch)
+        if custom_commit_message:
+            commit_message = custom_commit_message
+        else:
+            commit_message = get_commit_message(current_branch)
         pr_title = get_pr_title(original_ticket)
         
         # Prepend the PR title to the commit message
@@ -230,15 +234,16 @@ def create_auto_pr(ticket_name, base_branch, github_token=None):
         raise
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print_error("Usage: python auto_pr_script.py <ticketName> <baseBranch>")
+    if len(sys.argv) < 3 or len(sys.argv) > 4:
+        print_error("Usage: python auto_pr_script.py <ticketName> <baseBranch> [\"commitMessage\"]")
         sys.exit(1)
     
     ticket_name = sys.argv[1]
     base_branch = sys.argv[2]
+    custom_commit_message = sys.argv[3] if len(sys.argv) == 4 else None
     try:
         print("Starting the auto PR process...")
-        pr_url = create_auto_pr(ticket_name, base_branch)
+        pr_url = create_auto_pr(ticket_name, base_branch, custom_commit_message)
         print(f"Pull request created: {pr_url}")
     except ValueError as e:
         print_error(str(e))
