@@ -48,17 +48,17 @@ def get_current_branch():
 
 def get_parent_branch(current_branch):
     print_step(2, f"Determining parent branch for '{current_branch}'")
-    try:
-        # Try to get the explicitly configured parent branch
-        parent = run_git_command(f"git config branch.{current_branch}.merge")
-        if parent.startswith("refs/heads/"):
-            parent = parent.replace("refs/heads/", "")
-            print_success(f"Parent branch explicitly configured as: {parent}")
-            return parent
-    except subprocess.CalledProcessError:
-        print_warning("No explicitly configured parent branch found")
+    # try:
+    #     # Try to get the explicitly configured parent branch
+    #     parent = run_git_command(f"git config branch.{current_branch}.merge")
+    #     if parent.startswith("refs/heads/"):
+    #         parent = parent.replace("refs/heads/", "")
+    #         print_success(f"Parent branch explicitly configured as: {parent}")
+    #         return parent
+    # except subprocess.CalledProcessError:
+    #     print_warning("No explicitly configured parent branch found")
 
-    # If not explicitly configured, try to find the most likely parent
+    # # If not explicitly configured, try to find the most likely parent
     try:
         print_info("Searching for most likely parent branch...")
         branches = run_git_command("git branch -r --merged").split('\n')
