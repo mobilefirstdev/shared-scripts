@@ -3,6 +3,7 @@ import subprocess
 import os
 import re
 import json
+import shutil
 
 # ANSI color codes for colorful output
 GREEN = '\033[0;32m'
@@ -119,6 +120,36 @@ def run_auto_pr(ticket_number, base_branch, commit_message):
         print_error("Failed to extract pull request URL from output")
         raise Exception("Pull request URL not found in output")
 
+def cleanup_artifacts():
+    """Delete temporary artifacts generated during the integration process."""
+    print_step(4, "Cleaning up artifacts")
+
+    # Delete TEMP folder
+    temp_folder = os.path.join(os.getcwd(), "TEMP")
+    if os.path.exists(temp_folder):
+        try:
+            print_info(f"Attempting to delete TEMP folder: {temp_folder}")
+            shutil.rmtree(temp_folder)
+            print_success(f"Successfully deleted TEMP folder: {temp_folder}")
+        except Exception as e:
+            print_error(f"Failed to delete TEMP folder: {str(e)}")
+    else:
+        print_info(f"TEMP folder not found: {temp_folder}")
+
+    # Delete autoCommitArtifact.csv
+    csv_file = os.path.join(os.getcwd(), "autoCommitArtifact.csv")
+    if os.path.exists(csv_file):
+        try:
+            print_info(f"Attempting to delete file: {csv_file}")
+            os.remove(csv_file)
+            print_success(f"Successfully deleted file: {csv_file}")
+        except Exception as e:
+            print_error(f"Failed to delete file {csv_file}: {str(e)}")
+    else:
+        print_info(f"CSV file not found: {csv_file}")
+
+    print_success("Cleanup process completed.")
+
 def main():
     if len(sys.argv) != 2:
         print_error("Usage: python branch_integrator.py <prInto>")
@@ -140,6 +171,9 @@ def main():
     except Exception as e:
         print_error(f"An error occurred during the branch integration process: {str(e)}")
         sys.exit(1)
+    finally:
+        # Perform cleanup
+        cleanup_artifacts()
 
 if __name__ == "__main__":
     main()
