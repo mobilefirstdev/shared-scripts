@@ -209,6 +209,34 @@ def get_matching_branch_names(ticket_name):
         return [branch.strip('* ') for branch in branches if branch.strip()]
     return []
 
+def cleanup_branches(ticket_name, original_branch, create_pr):
+    """
+    Clean up branches related to the ticket.
+    """
+    print_step("Branch Cleanup", "Cleaning up branches")
+    # Switch back to the original branch
+    switch_result = run_command(f"git checkout {original_branch}")
+    if switch_result and switch_result.returncode == 0:
+        print_success(f"Switched back to original branch: {original_branch}")
+    else:
+        print_error(f"Failed to switch to original branch: {original_branch}")
+
+    # Delete ticket branches only if PR=true
+    if create_pr:
+        print_step("Branch Cleanup", "Removing ticket branches")
+        matching_branches = get_matching_branch_names(ticket_name)
+        if matching_branches:
+            for branch in matching_branches:
+                delete_branch_result = run_command(f"git branch -D {branch}")
+                if delete_branch_result and delete_branch_result.returncode == 0:
+                    print_success(f"Successfully deleted branch: {branch}")
+                else:
+                    print_error(f"Failed to delete branch: {branch}")
+        else:
+            print_error(f"Could not find any branches starting with: {ticket_name}")
+    else:
+        print_info("Skipping ticket branch deletion as PR creation was not requested.")
+
 def cleanup_artifacts(repo_root, ticket_name, original_branch, create_pr):
     """
     Delete temporary artifacts generated during the integration process.
@@ -233,28 +261,6 @@ def cleanup_artifacts(repo_root, ticket_name, original_branch, create_pr):
         except Exception as e:
             print_error(f"Failed to delete file {csv_file}: {str(e)}")
 
-    # Switch back to the original branch
-    switch_result = run_command(f"git checkout {original_branch}")
-    if switch_result and switch_result.returncode == 0:
-        print_success(f"Switched back to original branch: {original_branch}")
-    else:
-        print_error(f"Failed to switch to original branch: {original_branch}")
-
-    # Delete ticket branches only if PR=true
-    if create_pr:
-        print_step("Branch Cleanup", "Removing ticket branches")
-        matching_branches = get_matching_branch_names(ticket_name)
-        if matching_branches:
-            for branch in matching_branches:
-                delete_branch_result = run_command(f"git branch -D {branch}")
-                if delete_branch_result and delete_branch_result.returncode == 0:
-                    print_success(f"Successfully deleted branch: {branch}")
-                else:
-                    print_error(f"Failed to delete branch: {branch}")
-        else:
-            print_error(f"Could not find any branches starting with: {ticket_name}")
-    else:
-        print_info("Skipping ticket branch deletion as PR creation was not requested.")
 
 def update_commit_message(ticket_name, commit_message):
     """
@@ -359,7 +365,8 @@ def main():
         sys.exit(1)
 
     finally:
-
+        # Call the new function for branch cleanup
+        cleanup_branches(ticket_name, original_branch, create_pr)
         # Check if we're on the original branch, if not, switch to it
         current_branch = get_current_branch()
         if current_branch != original_branch:
