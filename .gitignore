@@ -37,5 +37,6 @@ venv
 ENV
 
 #temp
-TEMP
+TEMP/
+autoCommitArtifact.csv
 .temp

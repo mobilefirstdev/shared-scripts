@@ -343,6 +343,8 @@ def main():
         # Update the commit message
         update_commit_message(ticket_name, commit_message)
 
+   # Perform cleanup before creating the pull request
+        cleanup_artifacts(repo_root, ticket_name, original_branch, create_pr)
         # Create pull request if requested
         if create_pr:
             pr_created = create_pull_request(ticket_name, original_branch)
@@ -357,9 +359,7 @@ def main():
         sys.exit(1)
 
     finally:
-        # Perform cleanup
-        cleanup_artifacts(repo_root, ticket_name, original_branch, create_pr)
-        
+
         # Check if we're on the original branch, if not, switch to it
         current_branch = get_current_branch()
         if current_branch != original_branch:
